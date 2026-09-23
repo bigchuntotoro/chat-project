@@ -9,7 +9,7 @@ pipeline {
         APP_NAME     = 'chat-project'
         SERVICE_NAME = 'chat-project'
 
-        FRONTEND_DIR = "${WORKSPACE}/frontend"
+        FRONTEND_DIR = "${WORKSPACE}/src/frontend"
 
         // =================================================
         // Spring Boot 실행 환경
