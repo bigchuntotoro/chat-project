@@ -44,8 +44,13 @@ stages {
 
                 chmod +x gradlew
 
+                echo "Java Version:"
                 java -version
+
+                echo "Node Version:"
                 node -v
+
+                echo "NPM Version:"
                 npm -v
             '''
         }
@@ -53,12 +58,13 @@ stages {
 
 
     // =================================================
-    // 2. React Build
+    // 2. React Frontend Build
     // =================================================
     stage('2. Build Frontend') {
         steps {
 
             dir("${FRONTEND_DIR}") {
+
                 sh '''
                     set -e
 
@@ -72,27 +78,40 @@ stages {
                     echo "NPM:"
                     npm -v
 
+                    echo "----------------------------------------"
                     echo "Installing dependencies..."
+                    echo "----------------------------------------"
 
                     npm install --prefer-offline
 
+                    echo "----------------------------------------"
                     echo "Building React..."
+                    echo "----------------------------------------"
 
                     npm run build
 
+                    echo "----------------------------------------"
                     echo "Checking build result..."
+                    echo "----------------------------------------"
 
                     if [ -d "dist" ]; then
-                        echo "Vite dist detected."
+
+                        echo "Vite dist directory detected."
+
                         ls -lah dist
 
                     elif [ -d "build" ]; then
-                        echo "React build detected."
+
+                        echo "React build directory detected."
+
                         ls -lah build
 
                     else
-                        echo "ERROR: React build directory not found."
+
+                        echo "ERROR: React build output directory not found."
+
                         exit 1
+
                     fi
                 '''
             }
@@ -116,9 +135,11 @@ stages {
                 mkdir -p "${TARGET_DIR}"
 
 
-                // -------------------------------------------------
-                // 기존 React 정적 파일 제거
-                // -------------------------------------------------
+                # -------------------------------------------------
+                # 기존 React 정적 파일 삭제
+                #
+                # JAR / backup / logs는 삭제하지 않음
+                # -------------------------------------------------
 
                 echo "Cleaning Nginx React directory..."
 
@@ -131,42 +152,49 @@ stages {
                     -exec rm -rf {} +
 
 
-                // -------------------------------------------------
-                // Vite dist
-                // -------------------------------------------------
+                # -------------------------------------------------
+                # Vite dist 배포
+                # -------------------------------------------------
 
                 if [ -d "${FRONTEND_DIR}/dist" ]; then
 
-                    echo "Copying Vite dist..."
+                    echo "Copying Vite dist to Nginx..."
 
-                    cp -a "${FRONTEND_DIR}/dist/." \
-                          "${TARGET_DIR}/"
+                    cp -a \
+                        "${FRONTEND_DIR}/dist/." \
+                        "${TARGET_DIR}/"
 
 
-                // -------------------------------------------------
-                // CRA build
-                // -------------------------------------------------
+                # -------------------------------------------------
+                # CRA build 배포
+                # -------------------------------------------------
 
                 elif [ -d "${FRONTEND_DIR}/build" ]; then
 
-                    echo "Copying React build..."
+                    echo "Copying React build to Nginx..."
 
-                    cp -a "${FRONTEND_DIR}/build/." \
-                          "${TARGET_DIR}/"
+                    cp -a \
+                        "${FRONTEND_DIR}/build/." \
+                        "${TARGET_DIR}/"
 
                 else
 
                     echo "ERROR: React build output not found."
+
                     exit 1
 
                 fi
 
 
-                echo "----------------------------------------"
-                echo "Nginx React directory:"
-                echo "${TARGET_DIR}"
-                echo "----------------------------------------"
+                echo "========================================"
+                echo " Nginx React Deployment Complete"
+                echo "========================================"
 
+                echo "Nginx Root:"
+                echo "${TARGET_DIR}"
+
+                echo ""
+                echo "Files:"
                 ls -lah "${TARGET_DIR}"
             '''
         }
@@ -174,7 +202,7 @@ stages {
 
 
     // =================================================
-    // 4. Spring Boot Build
+    // 4. Spring Boot Gradle Build
     // =================================================
     stage('4. Build Backend') {
         steps {
@@ -188,7 +216,9 @@ stages {
 
                 ./gradlew clean build -x test
 
-                echo "Build completed."
+                echo "----------------------------------------"
+                echo "Gradle build completed."
+                echo "----------------------------------------"
 
                 ls -lah build/libs
             '''
@@ -212,6 +242,10 @@ stages {
                 mkdir -p "${TARGET_DIR}/logs"
 
 
+                # -------------------------------------------------
+                # Gradle Build 결과에서 실행 JAR 검색
+                # -------------------------------------------------
+
                 BUILD_JAR=$(find build/libs \
                     -maxdepth 1 \
                     -type f \
@@ -223,8 +257,11 @@ stages {
 
 
                 if [ -z "${BUILD_JAR}" ]; then
-                    echo "ERROR: JAR file not found."
+
+                    echo "ERROR: Spring Boot JAR file not found."
+
                     exit 1
+
                 fi
 
 
@@ -232,11 +269,13 @@ stages {
                 echo "${BUILD_JAR}"
 
 
-                // -------------------------------------------------
-                // 기존 JAR 백업
-                // -------------------------------------------------
+                # -------------------------------------------------
+                # 기존 JAR 백업
+                # -------------------------------------------------
 
                 if [ -f "${TARGET_DIR}/${APP_NAME}.jar" ]; then
+
+                    echo "Backing up existing JAR..."
 
                     cp -f \
                         "${TARGET_DIR}/${APP_NAME}.jar" \
@@ -245,9 +284,11 @@ stages {
                 fi
 
 
-                // -------------------------------------------------
-                // 새 JAR 배포
-                // -------------------------------------------------
+                # -------------------------------------------------
+                # 새 JAR 배포
+                # -------------------------------------------------
+
+                echo "Copying new JAR..."
 
                 cp -f \
                     "${BUILD_JAR}" \
@@ -258,8 +299,12 @@ stages {
                     "${TARGET_DIR}/${APP_NAME}.jar"
 
 
-                echo "Deployed JAR:"
-                ls -lh "${TARGET_DIR}/${APP_NAME}.jar"
+                echo "========================================"
+                echo " JAR Deployment Complete"
+                echo "========================================"
+
+                ls -lh \
+                    "${TARGET_DIR}/${APP_NAME}.jar"
             '''
         }
     }
@@ -280,9 +325,17 @@ stages {
 
                 sudo systemctl restart "${SERVICE_NAME}"
 
+                echo "Waiting for systemd..."
+
                 sleep 2
 
-                sudo systemctl --no-pager \
+
+                echo "----------------------------------------"
+                echo "Systemd Status"
+                echo "----------------------------------------"
+
+                sudo systemctl \
+                    --no-pager \
                     --full \
                     status "${SERVICE_NAME}" || true
             '''
@@ -320,10 +373,14 @@ stages {
                     if [ "${HTTP_CODE}" != "000" ]; then
 
                         echo ""
-                        echo "Spring Boot is running."
-                        echo "HTTP Status: ${HTTP_CODE}"
+                        echo "========================================"
+                        echo " Spring Boot is running"
+                        echo " HTTP Status: ${HTTP_CODE}"
+                        echo " Attempt: ${i}/30"
+                        echo "========================================"
 
                         STARTED=true
+
                         break
 
                     fi
@@ -336,9 +393,17 @@ stages {
                 done
 
 
+                # -------------------------------------------------
+                # Health Check 실패
+                # -------------------------------------------------
+
                 if [ "${STARTED}" != "true" ]; then
 
-                    echo "ERROR: Spring Boot failed to start."
+                    echo ""
+                    echo "========================================"
+                    echo " ERROR: Spring Boot failed to start"
+                    echo "========================================"
+
 
                     echo ""
                     echo "----- systemd status -----"
@@ -357,7 +422,9 @@ stages {
                         -n 100 \
                         --no-pager || true
 
+
                     exit 1
+
                 fi
             '''
         }
@@ -371,6 +438,7 @@ stages {
 post {
 
     success {
+
         echo """
 ```
 
@@ -390,6 +458,7 @@ Nginx Root  : ${TARGET_DIR}
 
 ```
     failure {
+
         echo """
 ```
 
@@ -397,14 +466,20 @@ Nginx Root  : ${TARGET_DIR}
 DEPLOYMENT FAILED
 =================
 
-# Application : ${APP_NAME}
+Application : ${APP_NAME}
+Frontend    : Nginx
+Backend     : Spring Boot
+Backend Port: ${APP_PORT}
+=========================
 
 """
 }
 
 ```
     always {
+
         echo "Jenkins build finished."
+
     }
 }
 ```
