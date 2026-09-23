@@ -48,7 +48,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         String token = tokenProvider.createToken(email, name);
 
         // 프론트엔드 콜백 페이지로 JWT 토큰과 함께 리다이렉트 (포트 87)
-        String targetUrl = UriComponentsBuilder.fromUriString("http://localhost:87/oauth/redirect")
+        String targetUrl = UriComponentsBuilder.fromUriString("http://localhost:8087/oauth/redirect")
                 .queryParam("token", token)
                 .build().toUriString();
 
