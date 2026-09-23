@@ -3,21 +3,27 @@ package com.example.chat.config;
 import com.example.chat.security.JwtAuthenticationFilter;
 import com.example.chat.security.OAuth2SuccessHandler;
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
+
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
+
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
+
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -34,24 +40,29 @@ import java.util.Map;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
+
     private final ClientRegistrationRepository clientRegistrationRepository;
+
 
     // ================================================================
     // Naver OAuth2 Authorization Request Resolver
     //
     // /oauth2/authorization/naver
-    // 요청이 들어오면 Naver authorization URL에
     //
-    // auth_type=reauth
+    // Spring Security가 네이버 로그인 URL을 만들 때
+    //
+    // auth_type=reauthenticate
     //
     // 를 강제로 추가한다.
     //
-    // 따라서 브라우저에 이미 Naver 로그인 세션이 있어도
-    // Naver가 다시 인증하도록 요청한다.
+    // 네이버 공식 문서상 reauthenticate는
+    // 현재 로그인 상태와 관계없이 다시 인증을 요구한다.
     // ================================================================
     @Bean
-    public OAuth2AuthorizationRequestResolver authorizationRequestResolver() {
+    public OAuth2AuthorizationRequestResolver
+    authorizationRequestResolver() {
 
         DefaultOAuth2AuthorizationRequestResolver defaultResolver =
                 new DefaultOAuth2AuthorizationRequestResolver(
@@ -59,27 +70,33 @@ public class SecurityConfig {
                         "/oauth2/authorization"
                 );
 
+
         return new OAuth2AuthorizationRequestResolver() {
 
+
+            // ============================================================
+            // 기본 resolver
+            // ============================================================
             @Override
             public OAuth2AuthorizationRequest resolve(
-                    HttpServletRequest request
-            ) {
+                    HttpServletRequest request) {
 
                 OAuth2AuthorizationRequest authorizationRequest =
                         defaultResolver.resolve(request);
 
-                return customizeAuthorizationRequest(
-                        request,
+                return customize(
                         authorizationRequest
                 );
             }
 
+
+            // ============================================================
+            // clientRegistrationId를 사용하는 resolver
+            // ============================================================
             @Override
             public OAuth2AuthorizationRequest resolve(
                     HttpServletRequest request,
-                    String clientRegistrationId
-            ) {
+                    String clientRegistrationId) {
 
                 OAuth2AuthorizationRequest authorizationRequest =
                         defaultResolver.resolve(
@@ -87,66 +104,82 @@ public class SecurityConfig {
                                 clientRegistrationId
                         );
 
-                return customizeAuthorizationRequest(
-                        request,
+                return customize(
                         authorizationRequest
                 );
             }
 
-            private OAuth2AuthorizationRequest customizeAuthorizationRequest(
-                    HttpServletRequest request,
-                    OAuth2AuthorizationRequest authorizationRequest
-            ) {
+
+            // ============================================================
+            // 네이버 OAuth 요청 수정
+            // ============================================================
+            private OAuth2AuthorizationRequest customize(
+                    OAuth2AuthorizationRequest authorizationRequest) {
 
                 if (authorizationRequest == null) {
                     return null;
                 }
 
-                // ========================================================
-                // Naver 로그인인 경우에만 reauth 적용
-                // ========================================================
-                String clientRegistrationId =
-                        authorizationRequest
-                                .getAttribute(
-                                        "registration_id"
-                                );
 
-                if (!"naver".equals(clientRegistrationId)) {
+                // --------------------------------------------------------
+                // OAuth2 registration id 확인
+                // --------------------------------------------------------
+                String registrationId =
+                        authorizationRequest.getAttribute(
+                                "registration_id"
+                        );
+
+
+                // --------------------------------------------------------
+                // Naver가 아니면 원래 요청 그대로 사용
+                // --------------------------------------------------------
+                if (!"naver".equals(registrationId)) {
+
                     return authorizationRequest;
                 }
 
-                // ========================================================
+
+                // --------------------------------------------------------
                 // 기존 additionalParameters 복사
-                // ========================================================
-                Map<String, Object> additionalParameters =
+                // --------------------------------------------------------
+                Map<String, Object> parameters =
                         new HashMap<>(
                                 authorizationRequest
                                         .getAdditionalParameters()
                         );
 
-                // ========================================================
-                // Naver에 강제 재인증 요청
-                // ========================================================
-                additionalParameters.put(
-                        "auth_type",
-                        "reauth"
-                );
 
                 // ========================================================
-                // 새 OAuth2AuthorizationRequest 생성
+                // 핵심
+                //
+                // Naver에 강제 재인증 요청
                 // ========================================================
+                parameters.put(
+                        "auth_type",
+                        "reauthenticate"
+                );
+
+
+                // --------------------------------------------------------
+                // 수정된 OAuth2AuthorizationRequest 생성
+                // --------------------------------------------------------
                 return OAuth2AuthorizationRequest
                         .from(authorizationRequest)
                         .additionalParameters(
-                                additionalParameters
+                                parameters
                         )
                         .build();
             }
         };
     }
 
+
     // ================================================================
-    // 1) API 전용 체인 (/api/**)
+    // 1. API 전용 Security Filter Chain
+    //
+    // /api/**
+    //
+    // JWT 기반 Stateless
     // ================================================================
     @Bean
     @Order(1)
@@ -154,34 +187,68 @@ public class SecurityConfig {
             HttpSecurity http
     ) throws Exception {
 
-        http
-                .securityMatcher("/api/**")
 
+        http
+
+                // --------------------------------------------------------
+                // API 요청만 이 체인에서 처리
+                // --------------------------------------------------------
+                .securityMatcher(
+                        "/api/**"
+                )
+
+
+                // --------------------------------------------------------
+                // CORS
+                // --------------------------------------------------------
                 .cors(cors ->
                         cors.configurationSource(
                                 corsConfigurationSource()
                         )
                 )
 
+
+                // --------------------------------------------------------
+                // CSRF
+                // --------------------------------------------------------
                 .csrf(csrf ->
                         csrf.disable()
                 )
 
+
+                // --------------------------------------------------------
+                // JWT API는 Stateless
+                // --------------------------------------------------------
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(
                                 SessionCreationPolicy.STATELESS
                         )
                 )
 
+
+                // --------------------------------------------------------
+                // 인증 설정
+                // --------------------------------------------------------
                 .authorizeHttpRequests(auth -> auth
 
+                        // 로그인 / 인증 관련 API
                         .requestMatchers(
                                 "/api/auth/**"
-                        ).permitAll()
+                        )
+                        .permitAll()
 
-                        .anyRequest().authenticated()
+                        // 나머지는 JWT 인증 필요
+                        .anyRequest()
+                        .authenticated()
                 )
 
+
+                // --------------------------------------------------------
+                // API 인증 실패
+                //
+                // OAuth2 로그인으로 redirect하지 않고
+                // HTTP 401 반환
+                // --------------------------------------------------------
                 .exceptionHandling(exception ->
                         exception.authenticationEntryPoint(
                                 new HttpStatusEntryPoint(
@@ -190,16 +257,22 @@ public class SecurityConfig {
                         )
                 )
 
+
+                // --------------------------------------------------------
+                // JWT Filter
+                // --------------------------------------------------------
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class
                 );
 
+
         return http.build();
     }
 
+
     // ================================================================
-    // 2) Web / OAuth2 / WebSocket 체인
+    // 2. Web / OAuth2 / WebSocket Security Filter Chain
     // ================================================================
     @Bean
     @Order(2)
@@ -207,106 +280,180 @@ public class SecurityConfig {
             HttpSecurity http
     ) throws Exception {
 
+
         http
+
+                // --------------------------------------------------------
+                // CORS
+                // --------------------------------------------------------
                 .cors(cors ->
                         cors.configurationSource(
                                 corsConfigurationSource()
                         )
                 )
 
+
+                // --------------------------------------------------------
+                // CSRF
+                // --------------------------------------------------------
                 .csrf(csrf ->
                         csrf.disable()
                 )
 
-                // ========================================================
-                // OAuth2 로그인은 세션 사용
+
+                // --------------------------------------------------------
+                // OAuth2 로그인에는 세션 필요
                 //
-                // authorization request / state 등을 Spring Security가
-                // 저장할 수 있도록 IF_REQUIRED 사용
-                // ========================================================
+                // STATELESS 사용 금지
+                // --------------------------------------------------------
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(
                                 SessionCreationPolicy.IF_REQUIRED
                         )
                 )
 
+
+                // --------------------------------------------------------
+                // URL 권한
+                // --------------------------------------------------------
                 .authorizeHttpRequests(auth -> auth
 
+
+                        // --------------------------------------------------
                         // 기본 페이지
-                        .requestMatchers("/").permitAll()
+                        // --------------------------------------------------
+                        .requestMatchers("/")
+                        .permitAll()
 
-                        // 에러
-                        .requestMatchers("/error").permitAll()
 
+                        // --------------------------------------------------
+                        // Spring error
+                        // --------------------------------------------------
+                        .requestMatchers("/error")
+                        .permitAll()
+
+
+                        // --------------------------------------------------
                         // WebSocket
-                        .requestMatchers("/ws/**").permitAll()
+                        // --------------------------------------------------
+                        .requestMatchers("/ws/**")
+                        .permitAll()
 
-                        // OAuth2
+
+                        // --------------------------------------------------
+                        // OAuth2 시작 URL
+                        //
+                        // /oauth2/authorization/naver
+                        // --------------------------------------------------
                         .requestMatchers(
-                                "/oauth2/**",
-                                "/login/**"
-                        ).permitAll()
+                                "/oauth2/**"
+                        )
+                        .permitAll()
 
-                        // 나머지
-                        .anyRequest().authenticated()
+
+                        // --------------------------------------------------
+                        // OAuth2 callback
+                        //
+                        // /login/oauth2/code/naver
+                        // --------------------------------------------------
+                        .requestMatchers(
+                                "/login/**"
+                        )
+                        .permitAll()
+
+
+                        // --------------------------------------------------
+                        // 그 외 요청
+                        // --------------------------------------------------
+                        .anyRequest()
+                        .authenticated()
                 )
+
 
                 // ========================================================
                 // OAuth2 Login
                 // ========================================================
                 .oauth2Login(oauth2 ->
+
                         oauth2
 
-                                // ==================================================
-                                // 핵심
+
+                                // ----------------------------------------
+                                // OAuth2 Authorization Request Resolver
                                 //
-                                // Naver 인증 URL에
-                                // auth_type=reauth
-                                // 를 추가한다.
-                                // ==================================================
+                                // 여기에서
+                                //
+                                // auth_type=reauthenticate
+                                //
+                                // 를 네이버에 추가한다.
+                                // ----------------------------------------
                                 .authorizationEndpoint(endpoint ->
-                                        endpoint.authorizationRequestResolver(
-                                                authorizationRequestResolver()
-                                        )
+                                        endpoint
+                                                .authorizationRequestResolver(
+                                                        authorizationRequestResolver()
+                                                )
                                 )
 
+
+                                // ----------------------------------------
+                                // Naver UserInfo
+                                // ----------------------------------------
                                 .userInfoEndpoint(userInfo ->
-                                        userInfo.userService(
-                                                new DefaultOAuth2UserService()
-                                        )
+                                        userInfo
+                                                .userService(
+                                                        new DefaultOAuth2UserService()
+                                                )
                                 )
 
+
+                                // ----------------------------------------
+                                // 로그인 성공
+                                // ----------------------------------------
                                 .successHandler(
                                         oAuth2SuccessHandler
                                 )
                 )
 
+
                 // ========================================================
                 // JWT Filter
+                //
+                // WebSocket 등에서 JWT 인증이 필요한 경우
                 // ========================================================
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class
                 );
 
+
         return http.build();
     }
 
+
     // ================================================================
-    // CORS
+    // CORS Configuration
     // ================================================================
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
 
+
         CorsConfiguration configuration =
                 new CorsConfiguration();
 
+
+        // ---------------------------------------------------------------
+        // React
+        // ---------------------------------------------------------------
         configuration.setAllowedOrigins(
                 List.of(
                         "http://localhost:3000"
                 )
         );
 
+
+        // ---------------------------------------------------------------
+        // HTTP Methods
+        // ---------------------------------------------------------------
         configuration.setAllowedMethods(
                 List.of(
                         "GET",
@@ -318,21 +465,32 @@ public class SecurityConfig {
                 )
         );
 
+
+        // ---------------------------------------------------------------
+        // Headers
+        // ---------------------------------------------------------------
         configuration.setAllowedHeaders(
                 List.of("*")
         );
 
+
+        // ---------------------------------------------------------------
+        // Cookie / Session
+        // ---------------------------------------------------------------
         configuration.setAllowCredentials(
                 true
         );
 
+
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
+
 
         source.registerCorsConfiguration(
                 "/**",
                 configuration
         );
+
 
         return source;
     }
