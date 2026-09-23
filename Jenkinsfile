@@ -1,175 +1,412 @@
 pipeline {
-    agent any
+agent any
 
-    environment {
-        // =================================================
-        // 프로젝트 / 배포 경로 설정
-        // =================================================
-        TARGET_DIR      = '/home/totoro/Reactproject/chat-project'
-        APP_NAME        = 'chat-project'
-        SERVICE_NAME    = 'chat-project'
+```
+environment {
+    // =================================================
+    // 프로젝트 / 배포 경로
+    // =================================================
+    TARGET_DIR   = '/home/totoro/Reactproject/chat-project'
+    APP_NAME     = 'chat-project'
+    SERVICE_NAME = 'chat-project'
 
-        FRONTEND_DIR    = "${WORKSPACE}/frontend"
-        STATIC_OUT_DIR  = "${WORKSPACE}/src/main/resources/static"
+    FRONTEND_DIR = "${WORKSPACE}/frontend"
 
-        // =================================================
-        // 실행 환경
-        // =================================================
-        JAVA_HOME       = '/usr/lib/jvm/java-21-openjdk-amd64'
-        APP_PORT        = '8086'
+    // =================================================
+    // Spring Boot 실행 환경
+    // =================================================
+    JAVA_HOME = '/usr/lib/jvm/java-21-openjdk-amd64'
+    APP_PORT  = '8086'
 
-        PATH            = "/usr/local/bin:/usr/bin:/bin:${env.PATH}"
+    PATH = "/usr/local/bin:/usr/bin:/bin:${env.PATH}"
+}
+
+tools {
+    jdk 'JDK21'
+    nodejs 'NodeJS24'
+}
+
+stages {
+
+    // =================================================
+    // 1. Checkout
+    // =================================================
+    stage('1. Checkout') {
+        steps {
+            checkout scm
+
+            sh '''
+                set -e
+
+                echo "========================================"
+                echo " Git Checkout"
+                echo "========================================"
+
+                chmod +x gradlew
+
+                java -version
+                node -v
+                npm -v
+            '''
+        }
     }
 
-    tools {
-        jdk 'JDK21'
-        nodejs 'NodeJS24'
-    }
 
-    stages {
+    // =================================================
+    // 2. React Build
+    // =================================================
+    stage('2. Build Frontend') {
+        steps {
 
-        // =================================================
-        // 1. 소스 체크아웃
-        // =================================================
-        stage('1. Checkout') {
-            steps {
-                checkout scm
-                sh 'chmod +x gradlew'
-            }
-        }
-
-        // =================================================
-        // 2. React Frontend Build & Nginx 경로 반영 복사
-        // =================================================
-        stage('2. Build Frontend (React)') {
-            steps {
-                dir("${FRONTEND_DIR}") {
-                    sh """
-                        set -e
-                        echo "==> Checking Node / NPM Version"
-                        node -v
-                        npm -v
-
-                        echo "==> Installing NPM Dependencies"
-                        # package-lock.json이 없어도 동작하는 npm install 사용
-                        npm install --prefer-offline
-
-                        echo "==> Building React Frontend"
-                        npm run build
-                    """
-                }
-
-                // Vite 빌드 결과물(dist 등)을 Nginx 배포 위치 및 스프링 정적 리소스로 복사
-                sh """
+            dir("${FRONTEND_DIR}") {
+                sh '''
                     set -e
-                    echo "==> Copying Frontend build files to Nginx path & Spring static"
-                    mkdir -p "${STATIC_OUT_DIR}"
-                    mkdir -p "${TARGET_DIR}"
 
-                    if [ -d "${FRONTEND_DIR}/dist" ]; then
-                        rm -rf "${TARGET_DIR}/*"
-                        cp -r ${FRONTEND_DIR}/dist/* "${TARGET_DIR}/"
-                        cp -r ${FRONTEND_DIR}/dist/* "${STATIC_OUT_DIR}/"
-                    elif [ -d "${FRONTEND_DIR}/build" ]; then
-                        rm -rf "${TARGET_DIR}/*"
-                        cp -r ${FRONTEND_DIR}/build/* "${TARGET_DIR}/"
-                        cp -r ${FRONTEND_DIR}/build/* "${STATIC_OUT_DIR}/"
-                    fi
-                """
-            }
-        }
+                    echo "========================================"
+                    echo " React Frontend Build"
+                    echo "========================================"
 
-        // =================================================
-        // 3. Spring Boot Gradle Build (통합 JAR 생성)
-        // =================================================
-        stage('3. Build Backend (Spring Boot / Gradle)') {
-            steps {
-                sh """
-                    set -e
-                    echo "==> Building Spring Boot Application with Gradle"
-                    ./gradlew clean build -x test
-                """
-            }
-        }
+                    echo "Node:"
+                    node -v
 
-        // =================================================
-        // 4. Deploy Backend JAR
-        // =================================================
-        stage('4. Deploy Backend JAR') {
-            steps {
-                sh """
-                    set -e
-                    echo "==> Preparing Spring Boot Deployment"
-                    mkdir -p "${TARGET_DIR}/logs"
+                    echo "NPM:"
+                    npm -v
 
-                    BUILD_JAR=\$(find build/libs \\
-                        -maxdepth 1 \\
-                        -type f \\
-                        -name "*.jar" \\
-                        ! -name "*-sources.jar" \\
-                        ! -name "*-plain.jar" \\
-                        -print \\
-                        | head -n 1)
+                    echo "Installing dependencies..."
 
-                    if [ -z "\$BUILD_JAR" ]; then
-                        echo "ERROR: Spring Boot JAR file not found."
-                        exit 1
-                    }
+                    npm install --prefer-offline
 
-                    cp -f "\$BUILD_JAR" "${TARGET_DIR}/${APP_NAME}.jar"
-                    chmod 755 "${TARGET_DIR}/${APP_NAME}.jar"
-                """
-            }
-        }
+                    echo "Building React..."
 
-        // =================================================
-        // 5. Run Spring Boot via systemd & Health Check
-        // =================================================
-        stage('5. Run & Verify Application') {
-            steps {
-                sh """
-                    set -e
-                    echo "==> Restarting Spring Boot Service via systemd"
-                    sudo systemctl restart ${SERVICE_NAME}
+                    npm run build
 
-                    echo "==> Waiting for Spring Boot response on port ${APP_PORT}..."
-                    STARTED=false
+                    echo "Checking build result..."
 
-                    for i in \$(seq 1 30); do
-                        HTTP_CODE=\$(curl \\
-                            -s \\
-                            -o /dev/null \\
-                            -w "%{http_code}" \\
-                            --connect-timeout 1 \\
-                            "http://127.0.0.1:${APP_PORT}/" \\
-                            || true)
+                    if [ -d "dist" ]; then
+                        echo "Vite dist detected."
+                        ls -lah dist
 
-                        if [ "\$HTTP_CODE" != "000" ]; then
-                            echo "Spring Boot responded with HTTP Status: \${HTTP_CODE}"
-                            STARTED=true
-                            break
-                        fi
+                    elif [ -d "build" ]; then
+                        echo "React build detected."
+                        ls -lah build
 
-                        echo "--> Waiting for server response... \${i}/30"
-                        sleep 1
-                    done
-
-                    if [ "\$STARTED" != "true" ]; then
-                        echo "ERROR: Spring Boot failed to start. Checking systemd logs..."
-                        sudo journalctl -u ${SERVICE_NAME} -n 50 --no-pager || true
+                    else
+                        echo "ERROR: React build directory not found."
                         exit 1
                     fi
-                """
+                '''
             }
         }
     }
 
-    post {
-        success {
-            echo "Successfully deployed and verified ${APP_NAME} on port ${APP_PORT}!"
-        }
-        failure {
-            echo "Deployment FAILED for ${APP_NAME}."
+
+    // =================================================
+    // 3. Deploy React → Nginx
+    // =================================================
+    stage('3. Deploy Frontend to Nginx') {
+        steps {
+
+            sh '''
+                set -e
+
+                echo "========================================"
+                echo " Deploy React to Nginx"
+                echo "========================================"
+
+                mkdir -p "${TARGET_DIR}"
+
+
+                // -------------------------------------------------
+                // 기존 React 정적 파일 제거
+                // -------------------------------------------------
+
+                echo "Cleaning Nginx React directory..."
+
+                find "${TARGET_DIR}" \
+                    -mindepth 1 \
+                    -maxdepth 1 \
+                    ! -name "logs" \
+                    ! -name "${APP_NAME}.jar" \
+                    ! -name "${APP_NAME}.jar.backup" \
+                    -exec rm -rf {} +
+
+
+                // -------------------------------------------------
+                // Vite dist
+                // -------------------------------------------------
+
+                if [ -d "${FRONTEND_DIR}/dist" ]; then
+
+                    echo "Copying Vite dist..."
+
+                    cp -a "${FRONTEND_DIR}/dist/." \
+                          "${TARGET_DIR}/"
+
+
+                // -------------------------------------------------
+                // CRA build
+                // -------------------------------------------------
+
+                elif [ -d "${FRONTEND_DIR}/build" ]; then
+
+                    echo "Copying React build..."
+
+                    cp -a "${FRONTEND_DIR}/build/." \
+                          "${TARGET_DIR}/"
+
+                else
+
+                    echo "ERROR: React build output not found."
+                    exit 1
+
+                fi
+
+
+                echo "----------------------------------------"
+                echo "Nginx React directory:"
+                echo "${TARGET_DIR}"
+                echo "----------------------------------------"
+
+                ls -lah "${TARGET_DIR}"
+            '''
         }
     }
+
+
+    // =================================================
+    // 4. Spring Boot Build
+    // =================================================
+    stage('4. Build Backend') {
+        steps {
+
+            sh '''
+                set -e
+
+                echo "========================================"
+                echo " Spring Boot Gradle Build"
+                echo "========================================"
+
+                ./gradlew clean build -x test
+
+                echo "Build completed."
+
+                ls -lah build/libs
+            '''
+        }
+    }
+
+
+    // =================================================
+    // 5. Deploy Spring Boot JAR
+    // =================================================
+    stage('5. Deploy Backend JAR') {
+        steps {
+
+            sh '''
+                set -e
+
+                echo "========================================"
+                echo " Deploy Spring Boot JAR"
+                echo "========================================"
+
+                mkdir -p "${TARGET_DIR}/logs"
+
+
+                BUILD_JAR=$(find build/libs \
+                    -maxdepth 1 \
+                    -type f \
+                    -name "*.jar" \
+                    ! -name "*-sources.jar" \
+                    ! -name "*-plain.jar" \
+                    -print \
+                    | head -n 1)
+
+
+                if [ -z "${BUILD_JAR}" ]; then
+                    echo "ERROR: JAR file not found."
+                    exit 1
+                fi
+
+
+                echo "Build JAR:"
+                echo "${BUILD_JAR}"
+
+
+                // -------------------------------------------------
+                // 기존 JAR 백업
+                // -------------------------------------------------
+
+                if [ -f "${TARGET_DIR}/${APP_NAME}.jar" ]; then
+
+                    cp -f \
+                        "${TARGET_DIR}/${APP_NAME}.jar" \
+                        "${TARGET_DIR}/${APP_NAME}.jar.backup"
+
+                fi
+
+
+                // -------------------------------------------------
+                // 새 JAR 배포
+                // -------------------------------------------------
+
+                cp -f \
+                    "${BUILD_JAR}" \
+                    "${TARGET_DIR}/${APP_NAME}.jar"
+
+
+                chmod 755 \
+                    "${TARGET_DIR}/${APP_NAME}.jar"
+
+
+                echo "Deployed JAR:"
+                ls -lh "${TARGET_DIR}/${APP_NAME}.jar"
+            '''
+        }
+    }
+
+
+    // =================================================
+    // 6. Restart Spring Boot
+    // =================================================
+    stage('6. Restart Backend') {
+        steps {
+
+            sh '''
+                set -e
+
+                echo "========================================"
+                echo " Restart Spring Boot"
+                echo "========================================"
+
+                sudo systemctl restart "${SERVICE_NAME}"
+
+                sleep 2
+
+                sudo systemctl --no-pager \
+                    --full \
+                    status "${SERVICE_NAME}" || true
+            '''
+        }
+    }
+
+
+    // =================================================
+    // 7. Backend Health Check
+    // =================================================
+    stage('7. Backend Health Check') {
+        steps {
+
+            sh '''
+                set -e
+
+                echo "========================================"
+                echo " Spring Boot Health Check"
+                echo "========================================"
+
+                STARTED=false
+
+
+                for i in $(seq 1 30); do
+
+                    HTTP_CODE=$(curl \
+                        -s \
+                        -o /dev/null \
+                        -w "%{http_code}" \
+                        --connect-timeout 1 \
+                        "http://127.0.0.1:${APP_PORT}/" \
+                        || true)
+
+
+                    if [ "${HTTP_CODE}" != "000" ]; then
+
+                        echo ""
+                        echo "Spring Boot is running."
+                        echo "HTTP Status: ${HTTP_CODE}"
+
+                        STARTED=true
+                        break
+
+                    fi
+
+
+                    echo "Waiting for Spring Boot... ${i}/30"
+
+                    sleep 1
+
+                done
+
+
+                if [ "${STARTED}" != "true" ]; then
+
+                    echo "ERROR: Spring Boot failed to start."
+
+                    echo ""
+                    echo "----- systemd status -----"
+
+                    sudo systemctl \
+                        --no-pager \
+                        --full \
+                        status "${SERVICE_NAME}" || true
+
+
+                    echo ""
+                    echo "----- systemd logs -----"
+
+                    sudo journalctl \
+                        -u "${SERVICE_NAME}" \
+                        -n 100 \
+                        --no-pager || true
+
+                    exit 1
+                fi
+            '''
+        }
+    }
+}
+
+
+// =================================================
+// POST
+// =================================================
+post {
+
+    success {
+        echo """
+```
+
+========================================
+DEPLOYMENT SUCCESS
+==================
+
+Application : ${APP_NAME}
+Frontend    : Nginx
+Backend     : Spring Boot
+Backend Port: ${APP_PORT}
+Nginx Root  : ${TARGET_DIR}
+===========================
+
+"""
+}
+
+```
+    failure {
+        echo """
+```
+
+========================================
+DEPLOYMENT FAILED
+=================
+
+# Application : ${APP_NAME}
+
+"""
+}
+
+```
+    always {
+        echo "Jenkins build finished."
+    }
+}
+```
+
 }
