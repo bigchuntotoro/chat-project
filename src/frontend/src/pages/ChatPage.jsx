@@ -22,28 +22,13 @@ export default function ChatPage() {
   // 사용자 인증 확인 및 채널 목록 로드
   // ============================================================
   useEffect(() => {
-    const token = localStorage.getItem("jwt_token");
-
-    if (!token) {
+    const username = localStorage.getItem("chat_username");
+    if (!username) {
       navigate("/", { replace: true });
       return;
     }
-
-    // 사용자 정보 조회
-    api
-      .get("/users/me")
-      .then((res) => {
-        setUser(res.data);
-      })
-      .catch((err) => {
-        console.error("인증 실패:", err);
-        if (err.response?.status === 401) {
-          localStorage.removeItem("jwt_token");
-          window.location.href =
-            "http://localhost:8086/oauth2/authorization/naver";
-          return;
-        }
-      });
+    // 백엔드 요청 대신 로컬 값으로 유저 설정
+    setUser({ id: username, name: username });
 
     // 채널 목록 조회 API 호출
     api
@@ -79,11 +64,7 @@ export default function ChatPage() {
   // ============================================================
   const handleLogout = () => {
     if (!window.confirm("정말 로그아웃 하시겠습니까?")) return;
-
-    // JWT 토큰 삭제
-    localStorage.removeItem("jwt_token");
-
-    // 로그인 페이지 또는 메인으로 이동 (필요에 따라 경로 수정 가능)
+    localStorage.removeItem("chat_username");
     navigate("/", { replace: true });
   };
 

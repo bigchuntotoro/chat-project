@@ -9,7 +9,7 @@ import lombok.ToString;
 @ToString
 public class ChatMessage {
     private String channelId;
-    private Long senderId;
+    private String senderId; // Long -> String으로 변경
     private String senderName;
     private String content;
 }

@@ -1,37 +1,63 @@
-import React from "react";
+// src/components/LoginPage.jsx
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "../styles/chat.css";
 
 export default function LoginPage() {
-  const handleNaverLogin = () => {
-    window.location.href = "/oauth2/authorization/naver";
+  const [username, setUsername] = useState("");
+  const navigate = useNavigate();
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (!username.trim()) {
+      alert("사용할 아이디(닉네임)를 입력해주세요.");
+      return;
+    }
+
+    // 간단히 이름을 로컬스토리지에 저장하고 채팅 페이지로 이동
+    localStorage.setItem("chat_username", username.trim());
+    navigate("/chat");
   };
 
   return (
     <div className="login-container">
       <div className="login-box">
-        <h2>실시간 협업 툴 로그인</h2>
+        <h2>실시간 채팅 로그인</h2>
+        <p>채팅에서 사용할 아이디를 입력해주세요.</p>
 
-        <p>팀과의 원활한 소통을 위해 네이버 계정으로 로그인해주세요.</p>
-
-        <button
-          type="button"
-          className="naver-login-btn"
-          onClick={handleNaverLogin}
-          style={{
-            width: "100%",
-            padding: "12px",
-            backgroundColor: "#03c75a",
-            color: "#fff",
-            border: "none",
-            borderRadius: "4px",
-            fontSize: "16px",
-            fontWeight: "bold",
-            cursor: "pointer",
-            marginTop: "20px",
-          }}
-        >
-          다른 아이디로 네이버 로그인
-        </button>
+        <form onSubmit={handleLogin} style={{ marginTop: "20px" }}>
+          <input
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="아이디 (닉네임)"
+            style={{
+              width: "100%",
+              padding: "12px",
+              fontSize: "16px",
+              boxSizing: "border-box",
+              marginBottom: "15px",
+              borderRadius: "4px",
+              border: "1px solid #ddd",
+            }}
+          />
+          <button
+            type="submit"
+            style={{
+              width: "100%",
+              padding: "12px",
+              backgroundColor: "#4f46e5",
+              color: "#fff",
+              border: "none",
+              borderRadius: "4px",
+              fontSize: "16px",
+              fontWeight: "bold",
+              cursor: "pointer",
+            }}
+          >
+            채팅 참여하기
+          </button>
+        </form>
       </div>
     </div>
   );
