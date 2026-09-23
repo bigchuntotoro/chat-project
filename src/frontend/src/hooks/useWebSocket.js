@@ -7,8 +7,8 @@ export default function useWebSocket(channelId, onMessageReceived) {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    //const socket = new SockJS("/ws");
-    const socket = new SockJS("http://localhost:8086/ws");
+    const socket = new SockJS("/ws");
+    //const socket = new SockJS("http://localhost:8086/ws");
     const client = new Client({
       webSocketFactory: () => socket,
       debug: (str) => {
