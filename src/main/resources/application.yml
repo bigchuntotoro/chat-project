@@ -35,5 +35,8 @@ jwt:
   expiration: 86400000
 
 logging:
+  file:
+    path: /home/totoro/Reactproject/chat-project/logs
   level:
-    org.springframework.security: DEBUG
+    root: INFO
+    com.example.chat: DEBUG

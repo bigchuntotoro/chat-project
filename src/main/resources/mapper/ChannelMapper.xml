@@ -4,8 +4,14 @@
     <select id="findAll" resultType="com.example.chat.domain.Channel">
         SELECT id, name, created_at AS createdAt FROM channels ORDER BY id DESC
     </select>
-
+    <select id="findById" parameterType="Long" resultType="com.example.chat.domain.Channel">
+        SELECT id, name, created_at AS createdAt FROM channels WHERE id = #{id}
+    </select>
     <insert id="insertChannel" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO channels (name) VALUES (#{name})
     </insert>
+    <!-- 채널 삭제 쿼리 추가 -->
+    <delete id="deleteChannel" parameterType="Long">
+        DELETE FROM channels WHERE id = #{id}
+    </delete>
 </mapper>

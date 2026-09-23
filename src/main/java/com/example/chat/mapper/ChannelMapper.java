@@ -10,4 +10,5 @@ public interface ChannelMapper {
     List<Channel> findAll();
     void insertChannel(Channel channel);
     Channel findById(Long id);
+    void deleteChannel(Long id); // 채널 삭제
 }

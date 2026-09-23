@@ -12,8 +12,7 @@ export default function ChatPage() {
   const [channelId, setChannelId] = useState("general");
   const [newChannelName, setNewChannelName] = useState("");
 
-  // 채널별 메시지 관리 (채널 ID를 키로 하는 객체 형태 권장)
-  // 예: { general: [...], channelA: [...] }
+  // 채널별 메시지 관리
   const [messagesMap, setMessagesMap] = useState({});
   const [inputMessage, setInputMessage] = useState("");
 
@@ -51,11 +50,6 @@ export default function ChatPage() {
       .get("/channels")
       .then((res) => {
         setChannels(res.data);
-        // 만약 기본 채널이 목록에 있다면 첫 번째 채널을 기본값으로 설정할 수도 있음
-        if (res.data && res.data.length > 0) {
-          // 필요에 따라 초기 채널 설정 (여기서는 문자열 id 또는 숫자 id 대응)
-          // setChannelId(res.data[0].id.toString());
-        }
       })
       .catch((err) => {
         console.error("채널 목록 조회 오류:", err);
@@ -100,6 +94,30 @@ export default function ChatPage() {
   };
 
   // ============================================================
+  // 채널 삭제 핸들러
+  // ============================================================
+  const handleDeleteChannel = (e, targetId) => {
+    e.stopPropagation();
+
+    if (!window.confirm("정말 이 채널을 삭제하시겠습니까?")) return;
+
+    api
+      .delete(`/channels/${targetId}`)
+      .then(() => {
+        setChannels((prev) =>
+          prev.filter((ch) => String(ch.id) !== String(targetId)),
+        );
+
+        if (String(channelId) === String(targetId)) {
+          setChannelId("general");
+        }
+      })
+      .catch((err) => {
+        console.error("채널 삭제 실패:", err);
+      });
+  };
+
+  // ============================================================
   // 메시지 전송
   // ============================================================
   const handleSend = (e) => {
@@ -118,7 +136,6 @@ export default function ChatPage() {
       content: inputMessage,
     };
 
-    // 백엔드 STOMP MessageMapping 경로에 맞게 전송
     sendMessage(`/app/chat/${channelId}`, chatMessage);
     setInputMessage("");
   };
@@ -126,22 +143,35 @@ export default function ChatPage() {
   // 현재 선택된 채널의 메시지 목록
   const currentMessages = messagesMap[channelId] || [];
 
+  // 현재 선택된 채널의 제목 찾기
+  const getCurrentChannelName = () => {
+    if (channelId === "general") return "general";
+    const found = channels.find((ch) => String(ch.id) === String(channelId));
+    return found ? found.name : channelId;
+  };
+
+  // 현재 채널 참여자 목록 추출
+  const currentChannelParticipants = Array.from(
+    new Set(currentMessages.map((msg) => msg.senderName)),
+  );
+
   // ============================================================
   // 화면
   // ============================================================
   return (
     <div className="chat-container">
+      {/* 좌측 채널 사이드바 */}
       <div className="sidebar">
         <h3>채널 목록</h3>
 
-        {/* 채널 생성 폼 */}
+        {/* 새 채널 생성 폼 (CSS 클래스 적용으로 컴팩트하게 정렬) */}
         <form onSubmit={handleCreateChannel} className="channel-create-form">
           <input
             type="text"
             value={newChannelName}
             onChange={(e) => setNewChannelName(e.target.value)}
-            placeholder="새 채널 이름..."
-            className="channel-create-input" // 클래스 이름만 변경
+            placeholder="채널 이름..."
+            className="channel-create-input"
           />
           <button type="submit" className="channel-create-button">
             추가
@@ -149,24 +179,38 @@ export default function ChatPage() {
         </form>
 
         <ul>
-          {/* 기본 general 채널 */}
           <li
             className={channelId === "general" ? "active" : ""}
             onClick={() => setChannelId("general")}
-            style={{ cursor: "pointer" }}
           >
             # general
           </li>
 
-          {/* 서버에서 불러온 동적 채널 목록 */}
           {channels.map((ch) => (
             <li
               key={ch.id}
               className={String(channelId) === String(ch.id) ? "active" : ""}
               onClick={() => setChannelId(String(ch.id))}
-              style={{ cursor: "pointer" }}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
             >
-              # {ch.name}
+              <span># {ch.name}</span>
+              <button
+                type="button"
+                onClick={(e) => handleDeleteChannel(e, ch.id)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "#ff6b6b",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                }}
+              >
+                삭제
+              </button>
             </li>
           ))}
         </ul>
@@ -187,9 +231,10 @@ export default function ChatPage() {
         </div>
       </div>
 
+      {/* 메인 채팅 영역 */}
       <div className="chat-main">
         <div className="chat-header">
-          <h2>채널: #{channelId}</h2>
+          <h2>채널: #{getCurrentChannelName()}</h2>
         </div>
 
         <div className="chat-messages">
@@ -215,6 +260,21 @@ export default function ChatPage() {
           />
           <button type="submit">전송</button>
         </form>
+      </div>
+
+      {/* 우측 참여자 목록 사이드바 (CSS 클래스 적용) */}
+      <div className="participants-sidebar">
+        <h4>채널 참여자</h4>
+        <ul>
+          {user && !currentChannelParticipants.includes(user.name) && (
+            <li>• {user.name} (나)</li>
+          )}
+          {currentChannelParticipants.map((name, idx) => (
+            <li key={idx}>
+              • {name} {name === user?.name ? "(나)" : ""}
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );

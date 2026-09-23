@@ -27,4 +27,11 @@ public class ChannelController {
         Channel newChannel = channelService.createChannel(name);
         return ResponseEntity.status(HttpStatus.CREATED).body(newChannel);
     }
+
+    // 채널 삭제 API 추가
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteChannel(@PathVariable Long id) {
+        channelService.deleteChannel(id);
+        return ResponseEntity.noContent().build(); // 204 No Content 반환
+    }
 }

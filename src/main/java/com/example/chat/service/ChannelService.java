@@ -24,4 +24,15 @@ public class ChannelService {
         channelMapper.insertChannel(channel);
         return channel;
     }
+
+    // 채널 삭제 비즈니스 로직 추가
+    @Transactional
+    public void deleteChannel(Long id) {
+        // (선택사항) 삭제하려는 채널이 존재하는지 확인하는 로직 추가 가능
+        Channel channel = channelMapper.findById(id);
+        if (channel == null) {
+            throw new IllegalArgumentException("존재하지 않는 채널입니다.");
+        }
+        channelMapper.deleteChannel(id);
+    }
 }
