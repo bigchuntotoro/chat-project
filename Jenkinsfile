@@ -51,11 +51,8 @@ pipeline {
                         npm -v
 
                         echo "==> Installing NPM Dependencies"
-                        if [ ! -d "node_modules" ]; then
-                            npm ci --prefer-offline
-                        else
-                            npm ci --prefer-offline
-                        fi
+                        // package-lock.json이 없어도 동작하는 npm install 사용
+                        npm install --prefer-offline
 
                         echo "==> Building React Frontend"
                         npm run build
@@ -69,7 +66,6 @@ pipeline {
                     mkdir -p "${STATIC_OUT_DIR}"
                     mkdir -p "${TARGET_DIR}"
 
-                    # Vite 기본 빌드 결과물인 dist 폴더 기준 예시 (CRA인 경우 build 폴더로 변경 필요)
                     if [ -d "${FRONTEND_DIR}/dist" ]; then
                         rm -rf "${TARGET_DIR}/*"
                         cp -r ${FRONTEND_DIR}/dist/* "${TARGET_DIR}/"
