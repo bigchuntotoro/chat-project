@@ -51,7 +51,7 @@ pipeline {
                         npm -v
 
                         echo "==> Installing NPM Dependencies"
-                        // package-lock.json이 없어도 동작하는 npm install 사용
+                        # package-lock.json이 없어도 동작하는 npm install 사용
                         npm install --prefer-offline
 
                         echo "==> Building React Frontend"
