@@ -131,3 +131,52 @@
 .chat-input-box button:hover {
   background: #4752c4;
 }
+/* 채널 생성 폼 컨테이너 */
+.channel-create-form {
+  display: flex;
+  gap: 8px; /* 인풋과 버튼 사이 간격 */
+  margin-bottom: 20px;
+  padding: 0 10px;
+}
+
+/* 채널 생성 인풋창 */
+.channel-create-input {
+  flex: 1; /* 남은 공간을 모두 차지 */
+  padding: 8px 12px;
+  border: 1px solid #444; /* 다크 테마 어울리는 테두리 */
+  border-radius: 4px;
+  background-color: #2a2a3d; /* 인풋 배경색 */
+  color: #fff;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.channel-create-input:focus {
+  outline: none;
+  border-color: #5c67f2; /* 포커스 시 테두리 색상 */
+}
+
+.channel-create-input::placeholder {
+  color: #888;
+}
+
+/* 채널 추가 버튼 */
+.channel-create-button {
+  padding: 8px 16px;
+  background-color: #5c67f2; /* 세련된 포인트 블루 */
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.channel-create-button:hover {
+  background-color: #4a54e1;
+}
+
+.channel-create-button:active {
+  background-color: #3f49c7;
+}

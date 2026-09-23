@@ -6,59 +6,73 @@ import "../styles/chat.css";
 
 export default function ChatPage() {
   const [user, setUser] = useState(null);
-  const [channelId] = useState("general");
-  const [messages, setMessages] = useState([]);
+
+  // 채널 목록 및 현재 선택된 채널 상태
+  const [channels, setChannels] = useState([]);
+  const [channelId, setChannelId] = useState("general");
+  const [newChannelName, setNewChannelName] = useState("");
+
+  // 채널별 메시지 관리 (채널 ID를 키로 하는 객체 형태 권장)
+  // 예: { general: [...], channelA: [...] }
+  const [messagesMap, setMessagesMap] = useState({});
   const [inputMessage, setInputMessage] = useState("");
+
   const navigate = useNavigate();
 
   // ============================================================
-  // 사용자 인증 확인
+  // 사용자 인증 확인 및 채널 목록 로드
   // ============================================================
   useEffect(() => {
     const token = localStorage.getItem("jwt_token");
 
-    // JWT가 아예 없으면 로그인 화면으로 이동
     if (!token) {
       navigate("/", { replace: true });
       return;
     }
 
+    // 사용자 정보 조회
     api
       .get("/users/me")
       .then((res) => {
-        console.log("인증 성공:", res.data);
         setUser(res.data);
       })
       .catch((err) => {
         console.error("인증 실패:", err);
-
-        // --------------------------------------------------------
-        // 서버에서 401을 반환한 경우
-        // JWT가 만료되었거나 잘못된 토큰
-        // --------------------------------------------------------
         if (err.response?.status === 401) {
           localStorage.removeItem("jwt_token");
-
-          // Axios로 OAuth URL을 호출하면 안 됨
-          // 브라우저 자체를 OAuth 로그인 URL로 이동
           window.location.href =
             "http://localhost:8086/oauth2/authorization/naver";
-
           return;
         }
+      });
 
-        // --------------------------------------------------------
-        // 그 외 오류
-        // --------------------------------------------------------
-        console.error("사용자 정보 조회 오류:", err);
+    // 채널 목록 조회 API 호출
+    api
+      .get("/channels")
+      .then((res) => {
+        setChannels(res.data);
+        // 만약 기본 채널이 목록에 있다면 첫 번째 채널을 기본값으로 설정할 수도 있음
+        if (res.data && res.data.length > 0) {
+          // 필요에 따라 초기 채널 설정 (여기서는 문자열 id 또는 숫자 id 대응)
+          // setChannelId(res.data[0].id.toString());
+        }
+      })
+      .catch((err) => {
+        console.error("채널 목록 조회 오류:", err);
       });
   }, [navigate]);
 
   // ============================================================
-  // WebSocket 메시지 수신
+  // WebSocket 메시지 수신 (현재 선택된 채널 기준)
   // ============================================================
   const handleMessageReceived = (newMessage) => {
-    setMessages((prev) => [...prev, newMessage]);
+    setMessagesMap((prev) => {
+      const currentChannelMessages = prev[newMessage.channelId] || [];
+      return {
+        ...prev,
+        [newMessage.channelId]: [...currentChannelMessages, newMessage],
+      };
+    });
   };
 
   const { isConnected, sendMessage } = useWebSocket(
@@ -67,15 +81,31 @@ export default function ChatPage() {
   );
 
   // ============================================================
+  // 새 채널 생성 핸들러
+  // ============================================================
+  const handleCreateChannel = (e) => {
+    e.preventDefault();
+    if (!newChannelName.trim()) return;
+
+    api
+      .post("/channels", { name: newChannelName })
+      .then((res) => {
+        const createdChannel = res.data;
+        setChannels((prev) => [createdChannel, ...prev]);
+        setNewChannelName("");
+      })
+      .catch((err) => {
+        console.error("채널 생성 실패:", err);
+      });
+  };
+
+  // ============================================================
   // 메시지 전송
   // ============================================================
   const handleSend = (e) => {
     e.preventDefault();
 
-    if (!inputMessage.trim()) {
-      return;
-    }
-
+    if (!inputMessage.trim()) return;
     if (!user) {
       console.error("로그인 사용자 정보가 없습니다.");
       return;
@@ -88,10 +118,13 @@ export default function ChatPage() {
       content: inputMessage,
     };
 
+    // 백엔드 STOMP MessageMapping 경로에 맞게 전송
     sendMessage(`/app/chat/${channelId}`, chatMessage);
-
     setInputMessage("");
   };
+
+  // 현재 선택된 채널의 메시지 목록
+  const currentMessages = messagesMap[channelId] || [];
 
   // ============================================================
   // 화면
@@ -101,8 +134,41 @@ export default function ChatPage() {
       <div className="sidebar">
         <h3>채널 목록</h3>
 
+        {/* 채널 생성 폼 */}
+        <form onSubmit={handleCreateChannel} className="channel-create-form">
+          <input
+            type="text"
+            value={newChannelName}
+            onChange={(e) => setNewChannelName(e.target.value)}
+            placeholder="새 채널 이름..."
+            className="channel-create-input" // 클래스 이름만 변경
+          />
+          <button type="submit" className="channel-create-button">
+            추가
+          </button>
+        </form>
+
         <ul>
-          <li className="active"># general</li>
+          {/* 기본 general 채널 */}
+          <li
+            className={channelId === "general" ? "active" : ""}
+            onClick={() => setChannelId("general")}
+            style={{ cursor: "pointer" }}
+          >
+            # general
+          </li>
+
+          {/* 서버에서 불러온 동적 채널 목록 */}
+          {channels.map((ch) => (
+            <li
+              key={ch.id}
+              className={String(channelId) === String(ch.id) ? "active" : ""}
+              onClick={() => setChannelId(String(ch.id))}
+              style={{ cursor: "pointer" }}
+            >
+              # {ch.name}
+            </li>
+          ))}
         </ul>
 
         <div className="user-info">
@@ -127,7 +193,7 @@ export default function ChatPage() {
         </div>
 
         <div className="chat-messages">
-          {messages.map((msg, index) => (
+          {currentMessages.map((msg, index) => (
             <div
               key={index}
               className={`message-item ${
@@ -135,7 +201,6 @@ export default function ChatPage() {
               }`}
             >
               <span className="sender">{msg.senderName}</span>
-
               <p className="content">{msg.content}</p>
             </div>
           ))}
@@ -148,7 +213,6 @@ export default function ChatPage() {
             onChange={(e) => setInputMessage(e.target.value)}
             placeholder="메시지를 입력하세요..."
           />
-
           <button type="submit">전송</button>
         </form>
       </div>
