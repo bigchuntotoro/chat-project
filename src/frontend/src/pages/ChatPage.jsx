@@ -75,6 +75,19 @@ export default function ChatPage() {
   );
 
   // ============================================================
+  // 로그아웃 핸들러 추가
+  // ============================================================
+  const handleLogout = () => {
+    if (!window.confirm("정말 로그아웃 하시겠습니까?")) return;
+
+    // JWT 토큰 삭제
+    localStorage.removeItem("jwt_token");
+
+    // 로그인 페이지 또는 메인으로 이동 (필요에 따라 경로 수정 가능)
+    navigate("/", { replace: true });
+  };
+
+  // ============================================================
   // 새 채널 생성 핸들러
   // ============================================================
   const handleCreateChannel = (e) => {
@@ -164,7 +177,7 @@ export default function ChatPage() {
       <div className="sidebar">
         <h3>채널 목록</h3>
 
-        {/* 새 채널 생성 폼 (CSS 클래스 적용으로 컴팩트하게 정렬) */}
+        {/* 새 채널 생성 폼 */}
         <form onSubmit={handleCreateChannel} className="channel-create-form">
           <input
             type="text"
@@ -228,6 +241,25 @@ export default function ChatPage() {
               {isConnected ? "실시간 연결됨" : "연결 끊김"}
             </span>
           </p>
+
+          {/* 로그아웃 버튼 추가 */}
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="logout-button"
+            style={{
+              marginTop: "10px",
+              width: "100%",
+              padding: "8px",
+              backgroundColor: "#ff6b6b",
+              color: "#fff",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+            }}
+          >
+            로그아웃
+          </button>
         </div>
       </div>
 
@@ -262,7 +294,7 @@ export default function ChatPage() {
         </form>
       </div>
 
-      {/* 우측 참여자 목록 사이드바 (CSS 클래스 적용) */}
+      {/* 우측 참여자 목록 사이드바 */}
       <div className="participants-sidebar">
         <h4>채널 참여자</h4>
         <ul>
