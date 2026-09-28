@@ -9,7 +9,8 @@ export default function useWebSocket(channelId, onMessageReceived) {
   useEffect(() => {
     // 백엔드 서버 주소를 명확하게 지정 (포트 번호가 다를 경우 백엔드 주소 입력)
     // 예: 백엔드가 8086 포트인 경우 "http://localhost:8086/ws"
-    const socket = new SockJS("http://127.0.0.1:8086/ws");
+    // const socket = new SockJS("http://127.0.0.1:8086/ws");
+    const socket = new SockJS("/ws");
 
     const client = new Client({
       webSocketFactory: () => socket,
