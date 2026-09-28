@@ -160,7 +160,7 @@ pipeline {
                     echo " Spring Boot Gradle Build"
                     echo "========================================"
 
-                    // bootJar를 명시적으로 실행하여 실행 가능한 Fat JAR가 확실히 생성되도록 함
+                    # bootJar를 명시적으로 실행하여 실행 가능한 Fat JAR가 확실히 생성되도록 함
                     ./gradlew clean bootJar -x test
 
                     echo "----------------------------------------"
