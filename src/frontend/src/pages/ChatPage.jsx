@@ -27,10 +27,8 @@ export default function ChatPage() {
       navigate("/", { replace: true });
       return;
     }
-    // 백엔드 요청 대신 로컬 값으로 유저 설정
     setUser({ id: username, name: username });
 
-    // 채널 목록 조회 API 호출
     api
       .get("/channels")
       .then((res) => {
@@ -154,7 +152,7 @@ export default function ChatPage() {
   // ============================================================
   return (
     <div className="chat-container">
-      {/* 좌측 채널 사이드바 */}
+      {/* 좌측 사이드바 (채널 목록 + 채널 참여자 목록 통합) */}
       <div className="sidebar">
         <h3>채널 목록</h3>
 
@@ -209,6 +207,37 @@ export default function ChatPage() {
           ))}
         </ul>
 
+        {/* ── [추가됨] 채널 목록 아래에 위치한 채널 참여자 목록 영역 ── */}
+        <div
+          className="participants-section"
+          style={{
+            marginTop: "15px",
+            borderTop: "1px solid #444",
+            paddingTop: "10px",
+          }}
+        >
+          <h4 style={{ fontSize: "14px", marginBottom: "8px", color: "#ccc" }}>
+            채널 참여자
+          </h4>
+          <ul
+            style={{
+              listStyle: "none",
+              padding: 0,
+              margin: 0,
+              fontSize: "13px",
+            }}
+          >
+            {user && !currentChannelParticipants.includes(user.name) && (
+              <li style={{ padding: "2px 0" }}>• {user.name} (나)</li>
+            )}
+            {currentChannelParticipants.map((name, idx) => (
+              <li key={idx} style={{ padding: "2px 0" }}>
+                • {name} {name === user?.name ? "(나)" : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+
         <div className="user-info">
           {user && (
             <p>
@@ -223,7 +252,6 @@ export default function ChatPage() {
             </span>
           </p>
 
-          {/* 로그아웃 버튼 추가 */}
           <button
             type="button"
             onClick={handleLogout}
@@ -273,21 +301,6 @@ export default function ChatPage() {
           />
           <button type="submit">전송</button>
         </form>
-      </div>
-
-      {/* 우측 참여자 목록 사이드바 */}
-      <div className="participants-sidebar">
-        <h4>채널 참여자</h4>
-        <ul>
-          {user && !currentChannelParticipants.includes(user.name) && (
-            <li>• {user.name} (나)</li>
-          )}
-          {currentChannelParticipants.map((name, idx) => (
-            <li key={idx}>
-              • {name} {name === user?.name ? "(나)" : ""}
-            </li>
-          ))}
-        </ul>
       </div>
     </div>
   );
