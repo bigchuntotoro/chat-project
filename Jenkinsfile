@@ -173,52 +173,56 @@ pipeline {
         }
 
         // =================================================
-        // 5. Deploy Spring Boot JAR
-        // =================================================
-        stage('5. Deploy Backend JAR') {
-            steps {
-                sh '''
-                    set -e
+         // 5. Deploy Spring Boot JAR
+         // =================================================
+         stage('5. Deploy Backend JAR') {
+             steps {
+                 sh '''
+                     set -e
 
-                    echo "========================================"
-                    echo " Deploy Spring Boot JAR"
-                    echo "========================================"
+                     echo "========================================"
+                     echo " Deploy Spring Boot JAR"
+                     echo "========================================"
 
-                    mkdir -p "${TARGET_DIR}/logs"
+                     # logs 디렉토리 생성 및 소유권을 totoro 계정으로 확실히 설정
+                     sudo mkdir -p "${TARGET_DIR}/logs"
+                     sudo chown -R totoro:totoro "${TARGET_DIR}/logs"
 
-                    # plain.jar나 sources.jar를 확실히 제외하고 실행 가능한 jar만 선택
-                    BUILD_JAR=$(find build/libs \
-                        -maxdepth 1 \
-                        -type f \
-                        -name "*.jar" \
-                        ! -name "*-plain.jar" \
-                        ! -name "*-sources.jar" \
-                        ! -name "*-javadoc.jar" \
-                        | head -n 1)
+                     BUILD_JAR=$(find build/libs \
+                         -maxdepth 1 \
+                         -type f \
+                         -name "*.jar" \
+                         ! -name "*-plain.jar" \
+                         ! -name "*-sources.jar" \
+                         ! -name "*-javadoc.jar" \
+                         | head -n 1)
 
-                    if [ -z "${BUILD_JAR}" ]; then
-                        echo "ERROR: Spring Boot executable JAR file not found."
-                        exit 1
-                    fi
+                     if [ -z "${BUILD_JAR}" ]; then
+                         echo "ERROR: Spring Boot executable JAR file not found."
+                         exit 1
+                     fi
 
-                    echo "Selected Executable JAR: ${BUILD_JAR}"
+                     echo "Selected Executable JAR: ${BUILD_JAR}"
 
-                    if [ -f "${TARGET_DIR}/${APP_NAME}.jar" ]; then
-                        echo "Backing up existing JAR..."
-                        cp -f "${TARGET_DIR}/${APP_NAME}.jar" "${TARGET_DIR}/${APP_NAME}.jar.backup"
-                    fi
+                     if [ -f "${TARGET_DIR}/${APP_NAME}.jar" ]; then
+                         echo "Backing up existing JAR..."
+                         cp -f "${TARGET_DIR}/${APP_NAME}.jar" "${TARGET_DIR}/${APP_NAME}.jar.backup"
+                     fi
 
-                    echo "Copying new JAR..."
-                    cp -f "${BUILD_JAR}" "${TARGET_DIR}/${APP_NAME}.jar"
-                    chmod 755 "${TARGET_DIR}/${APP_NAME}.jar"
+                     echo "Copying new JAR..."
+                     cp -f "${BUILD_JAR}" "${TARGET_DIR}/${APP_NAME}.jar"
+                     chmod 755 "${TARGET_DIR}/${APP_NAME}.jar"
 
-                    echo "========================================"
-                    echo " JAR Deployment Complete"
-                    echo "========================================"
-                    ls -lh "${TARGET_DIR}/${APP_NAME}.jar"
-                '''
-            }
-        }
+                     # jar 파일 및 프로젝트 디렉토리 소유권도 totoro로 맞춤
+                     sudo chown totoro:totoro "${TARGET_DIR}/${APP_NAME}.jar"
+
+                     echo "========================================"
+                     echo " JAR Deployment Complete"
+                     echo "========================================"
+                     ls -lh "${TARGET_DIR}/${APP_NAME}.jar"
+                 '''
+             }
+         }
 
         // =================================================
         // 6. Restart Spring Boot
