@@ -9,7 +9,7 @@
         ON DUPLICATE KEY UPDATE name = #{name}
     </insert>
 
-    <select id="findUserById" resultType="com.example.chat.model.User">
+    <select id="findUserById" resultType="com.example.chat.domain.User">
         SELECT id, name, created_at AS createdAt FROM chat_users WHERE id = #{id}
     </select>
 </mapper>

@@ -8,7 +8,7 @@
         VALUES (#{channelId}, #{senderId}, #{senderName}, #{content}, NOW())
     </insert>
 
-    <select id="findMessagesByChannelId" resultType="com.example.chat.model.ChatMessage">
+    <select id="findMessagesByChannelId" resultType="com.example.chat.domain.ChatMessage">
         SELECT id, channel_id AS channelId, sender_id AS senderId,
         sender_name AS senderName, content, created_at AS createdAt
         FROM chat_messages
