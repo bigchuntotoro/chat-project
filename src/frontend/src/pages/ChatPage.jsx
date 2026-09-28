@@ -28,15 +28,15 @@ export default function ChatPage() {
       return;
     }
 
-    // 백엔드에 사용자 정보 등록/확인 요청
+    // [수정 포인트] id를 보내지 않고 name만 전송하여 백엔드 DB PK(Long) 타입 충돌 방지
     api
-      .post("/users", { id: username, name: username })
+      .post("/users", { name: username })
       .then((res) => {
-        setUser(res.data);
+        setUser(res.data); // res.data는 백엔드에서 생성된 Long 타입 id와 name을 포함한 User 객체
       })
       .catch((err) => {
         console.error("사용자 정보 연동 실패:", err);
-        setUser({ id: username, name: username });
+        setUser({ id: null, name: username });
       });
 
     // 채널 목록 조회 API 호출
@@ -90,7 +90,7 @@ export default function ChatPage() {
   );
 
   // ============================================================
-  // 로그아웃 핸들러 추가
+  // 로그아웃 핸들러
   // ============================================================
   const handleLogout = () => {
     if (!window.confirm("정말 로그아웃 하시겠습니까?")) return;
@@ -155,7 +155,7 @@ export default function ChatPage() {
 
     const chatMessage = {
       channelId: channelId,
-      senderId: user.id,
+      senderId: user.id ? String(user.id) : user.name, // String 타입으로 안전하게 전송
       senderName: user.name,
       content: inputMessage,
     };
@@ -180,7 +180,7 @@ export default function ChatPage() {
   );
 
   // ============================================================
-  // 화면
+  // 화면 렌더링
   // ============================================================
   return (
     <div className="chat-container">
@@ -239,7 +239,7 @@ export default function ChatPage() {
           ))}
         </ul>
 
-        {/* 채널 목록 아래에 위치한 채널 참여자 목록 영역 */}
+        {/* 채널 참여자 목록 영역 */}
         <div
           className="participants-section"
           style={{
@@ -286,6 +286,7 @@ export default function ChatPage() {
 
           <button
             type="button"
+            handleLogout
             onClick={handleLogout}
             className="logout-button"
             style={{
