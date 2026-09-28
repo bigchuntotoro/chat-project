@@ -6,7 +6,6 @@ import org.apache.ibatis.annotations.Param;
 
 @Mapper
 public interface UserMapper {
-    User findByEmail(@Param("email") String email);
-    void insertUser(User user);
-    void updateUserStatus(@Param("email") String email, @Param("status") String status);
+    void upsertUser(User user);
+    User findUserById(@Param("id") String id);
 }

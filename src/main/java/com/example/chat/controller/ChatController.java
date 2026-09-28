@@ -1,17 +1,42 @@
 package com.example.chat.controller;
 
+import com.example.chat.domain.User;
 import com.example.chat.dto.ChatMessage; // 방금 만든 DTO 임포트
+import com.example.chat.mapper.ChatMessageMapper;
+import com.example.chat.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+
+import java.util.List;
 
 @Controller
 @RequiredArgsConstructor
 public class ChatController {
 
     private final SimpMessagingTemplate messagingTemplate;
+
+    private final ChatMessageMapper chatMessageMapper;
+    private final UserMapper userMapper;
+
+    // 사용자 로그인 및 DB 등록/확인 API
+    @PostMapping("/api/users")
+    public User loginOrRegisterUser(@RequestBody User user) {
+        userMapper.upsertUser(user);
+        return userMapper.findUserById(user.getId());
+    }
+
+    // 특정 채널의 과거 대화 내역 조회 API
+    @GetMapping("/api/channels/{channelId}/messages")
+    public List<com.example.chat.domain.ChatMessage> getChannelMessages(@PathVariable String channelId) {
+        return chatMessageMapper.findMessagesByChannelId(channelId);
+    }
 
     @MessageMapping("/chat/{channelId}")
     public void handleChatMessage(@DestinationVariable String channelId, ChatMessage chatMessage) {

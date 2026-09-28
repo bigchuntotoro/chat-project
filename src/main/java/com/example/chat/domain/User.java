@@ -1,16 +1,11 @@
 package com.example.chat.domain;
 
-import lombok.Getter;
-import lombok.Setter;
+import lombok.Data;
 import java.time.LocalDateTime;
 
-@Getter
-@Setter
+@Data
 public class User {
-    private Long id;
-    private String email;
+    private String id;
     private String name;
-    private String profileImage;
-    private String status; // ONLINE, OFFLINE
     private LocalDateTime createdAt;
 }

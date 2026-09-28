@@ -19,7 +19,7 @@ export default function ChatPage() {
   const navigate = useNavigate();
 
   // ============================================================
-  // 사용자 인증 확인 및 채널 목록 로드
+  // 사용자 인증 확인 및 DB 연동, 채널 목록 로드
   // ============================================================
   useEffect(() => {
     const username = localStorage.getItem("chat_username");
@@ -27,8 +27,19 @@ export default function ChatPage() {
       navigate("/", { replace: true });
       return;
     }
-    setUser({ id: username, name: username });
 
+    // 백엔드에 사용자 정보 등록/확인 요청
+    api
+      .post("/users", { id: username, name: username })
+      .then((res) => {
+        setUser(res.data);
+      })
+      .catch((err) => {
+        console.error("사용자 정보 연동 실패:", err);
+        setUser({ id: username, name: username });
+      });
+
+    // 채널 목록 조회 API 호출
     api
       .get("/channels")
       .then((res) => {
@@ -40,11 +51,32 @@ export default function ChatPage() {
   }, [navigate]);
 
   // ============================================================
-  // WebSocket 메시지 수신 (현재 선택된 채널 기준)
+  // 채널 변경 시 해당 채널의 과거 대화 내역(DB) 불러오기
+  // ============================================================
+  useEffect(() => {
+    api
+      .get(`/channels/${channelId}/messages`)
+      .then((res) => {
+        setMessagesMap((prev) => ({
+          ...prev,
+          [channelId]: res.data, // DB에서 가져온 과거 메시지 세팅
+        }));
+      })
+      .catch((err) => {
+        console.error("과거 메시지 조회 실패:", err);
+      });
+  }, [channelId]);
+
+  // ============================================================
+  // WebSocket 실시간 메시지 수신 (현재 선택된 채널 기준)
   // ============================================================
   const handleMessageReceived = (newMessage) => {
     setMessagesMap((prev) => {
       const currentChannelMessages = prev[newMessage.channelId] || [];
+      // 중복 방지 (이미 존재하는 메시지 ID가 아닐 경우에만 추가)
+      if (currentChannelMessages.some((msg) => msg.id === newMessage.id)) {
+        return prev;
+      }
       return {
         ...prev,
         [newMessage.channelId]: [...currentChannelMessages, newMessage],
@@ -207,7 +239,7 @@ export default function ChatPage() {
           ))}
         </ul>
 
-        {/* ── [추가됨] 채널 목록 아래에 위치한 채널 참여자 목록 영역 ── */}
+        {/* 채널 목록 아래에 위치한 채널 참여자 목록 영역 */}
         <div
           className="participants-section"
           style={{
@@ -281,7 +313,7 @@ export default function ChatPage() {
         <div className="chat-messages">
           {currentMessages.map((msg, index) => (
             <div
-              key={index}
+              key={msg.id || index}
               className={`message-item ${
                 msg.senderName === user?.name ? "my-message" : ""
               }`}
