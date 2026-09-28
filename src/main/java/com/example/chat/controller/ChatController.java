@@ -1,31 +1,26 @@
 package com.example.chat.controller;
 
 import com.example.chat.domain.User;
-import com.example.chat.dto.ChatMessage; // 방금 만든 DTO 임포트
+import com.example.chat.domain.ChatMessage; // 도메인/엔티티형 메시지
 import com.example.chat.mapper.ChatMessageMapper;
 import com.example.chat.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@Controller
+@RestController // @Controller 대신 @RestController를 사용하면 모든 메서드에 자동으로 @ResponseBody가 적용됩니다.
 @RequiredArgsConstructor
 public class ChatController {
 
     private final SimpMessagingTemplate messagingTemplate;
-
     private final ChatMessageMapper chatMessageMapper;
     private final UserMapper userMapper;
 
-    // 사용자 로그인 및 DB 등록/확인 API
+    // 1. 사용자 로그인 및 DB 등록/확인 API (404 에러 해결)
     @PostMapping("/api/users")
     public User loginOrRegisterUser(@RequestBody User user) {
         // 1. 닉네임으로 기존 사용자 검색
@@ -40,17 +35,23 @@ public class ChatController {
         return user; // useGeneratedKeys로 인해 생성된 id가 user 객체에 담김
     }
 
-    // 특정 채널의 과거 대화 내역 조회 API
+    // 2. 특정 채널의 과거 대화 내역 조회 API (404 에러 해결)
     @GetMapping("/api/channels/{channelId}/messages")
-    public List<com.example.chat.domain.ChatMessage> getChannelMessages(@PathVariable String channelId) {
+    public List<ChatMessage> getChannelMessages(@PathVariable String channelId) {
         return chatMessageMapper.findMessagesByChannelId(channelId);
     }
 
+    // 3. 실시간 웹소켓 메시지 수신 및 DB 저장 후 브로드캐스트
     @MessageMapping("/chat/{channelId}")
     public void handleChatMessage(@DestinationVariable String channelId, ChatMessage chatMessage) {
         System.out.println("정상 수신된 채팅 객체: " + chatMessage);
 
-        // 구독 중인 클라이언트들에게 그대로 브로드캐스트
+        chatMessage.setChannelId(channelId);
+
+        // [중요] 수신한 메시지를 데이터베이스에 저장 (id와 created_at 채워짐)
+        chatMessageMapper.insertMessage(chatMessage);
+
+        // 구독 중인 클라이언트들에게 DB에 저장된(id가 포함된) 메시지 객체를 브로드캐스트
         messagingTemplate.convertAndSend("/topic/channel/" + channelId, chatMessage);
     }
 }
