@@ -3,13 +3,22 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.example.chat.mapper.UserMapper">
-    <insert id="upsertUser">
-        INSERT INTO chat_users (id, name, created_at)
-        VALUES (#{id}, #{name}, NOW())
-        ON DUPLICATE KEY UPDATE name = #{name}
-    </insert>
+
+    <select id="findUserByName" resultType="com.example.chat.domain.User">
+        SELECT id, name, created_at AS createdAt
+        FROM users
+        WHERE name = #{name}
+    </select>
 
     <select id="findUserById" resultType="com.example.chat.domain.User">
-        SELECT id, name, created_at AS createdAt FROM chat_users WHERE id = #{id}
+        SELECT id, name, created_at AS createdAt
+        FROM users
+        WHERE id = #{id}
     </select>
+
+    <insert id="insertUser" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO users (name, created_at)
+        VALUES (#{name}, NOW())
+    </insert>
+
 </mapper>

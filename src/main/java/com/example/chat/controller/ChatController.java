@@ -28,8 +28,16 @@ public class ChatController {
     // 사용자 로그인 및 DB 등록/확인 API
     @PostMapping("/api/users")
     public User loginOrRegisterUser(@RequestBody User user) {
-        userMapper.upsertUser(user);
-        return userMapper.findUserById(user.getId());
+        // 1. 닉네임으로 기존 사용자 검색
+        User existingUser = userMapper.findUserByName(user.getName());
+
+        if (existingUser != null) {
+            return existingUser; // 이미 존재하면 기존 정보 반환 (자동 생성된 id 포함)
+        }
+
+        // 2. 없으면 새로 등록
+        userMapper.insertUser(user);
+        return user; // useGeneratedKeys로 인해 생성된 id가 user 객체에 담김
     }
 
     // 특정 채널의 과거 대화 내역 조회 API

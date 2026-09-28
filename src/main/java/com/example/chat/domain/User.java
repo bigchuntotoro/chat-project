@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 
 @Data
 public class User {
-    private String id;
+    private Long id;
     private String name;
     private LocalDateTime createdAt;
 }
