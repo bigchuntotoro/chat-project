@@ -160,7 +160,8 @@ pipeline {
                     echo " Spring Boot Gradle Build"
                     echo "========================================"
 
-                    ./gradlew clean build -x test
+                    // bootJar를 명시적으로 실행하여 실행 가능한 Fat JAR가 확실히 생성되도록 함
+                    ./gradlew clean bootJar -x test
 
                     echo "----------------------------------------"
                     echo "Gradle build completed."
@@ -185,21 +186,22 @@ pipeline {
 
                     mkdir -p "${TARGET_DIR}/logs"
 
+                    # plain.jar나 sources.jar를 확실히 제외하고 실행 가능한 jar만 선택
                     BUILD_JAR=$(find build/libs \
                         -maxdepth 1 \
                         -type f \
                         -name "*.jar" \
-                        ! -name "*-sources.jar" \
                         ! -name "*-plain.jar" \
-                        -print \
+                        ! -name "*-sources.jar" \
+                        ! -name "*-javadoc.jar" \
                         | head -n 1)
 
                     if [ -z "${BUILD_JAR}" ]; then
-                        echo "ERROR: Spring Boot JAR file not found."
+                        echo "ERROR: Spring Boot executable JAR file not found."
                         exit 1
                     fi
 
-                    echo "Build JAR: ${BUILD_JAR}"
+                    echo "Selected Executable JAR: ${BUILD_JAR}"
 
                     if [ -f "${TARGET_DIR}/${APP_NAME}.jar" ]; then
                         echo "Backing up existing JAR..."
@@ -233,7 +235,7 @@ pipeline {
                     sudo systemctl restart "${SERVICE_NAME}"
 
                     echo "Waiting for systemd..."
-                    sleep 2
+                    sleep 3
 
                     echo "----------------------------------------"
                     echo "Systemd Status"
@@ -263,10 +265,10 @@ pipeline {
                             -o /dev/null \
                             -w "%{http_code}" \
                             --connect-timeout 1 \
-                            "[http://127.0.0.1](http://127.0.0.1):${APP_PORT}/" \
+                            "http://127.0.0.1:${APP_PORT}/" \
                             || true)
 
-                        if [ "${HTTP_CODE}" != "000" ]; then
+                        if [ "${HTTP_CODE}" != "000" ] && [ -n "${HTTP_CODE}" ]; then
                             echo ""
                             echo "========================================"
                             echo " Spring Boot is running"
