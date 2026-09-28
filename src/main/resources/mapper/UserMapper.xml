@@ -6,18 +6,18 @@
 
     <select id="findUserByName" resultType="com.example.chat.domain.User">
         SELECT id, name, created_at AS createdAt
-        FROM users
+        FROM chat_users
         WHERE name = #{name}
     </select>
 
     <select id="findUserById" resultType="com.example.chat.domain.User">
         SELECT id, name, created_at AS createdAt
-        FROM users
+        FROM chat_users
         WHERE id = #{id}
     </select>
 
     <insert id="insertUser" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO users (name, created_at)
+        INSERT INTO chat_users (name, created_at)
         VALUES (#{name}, NOW())
     </insert>
 
