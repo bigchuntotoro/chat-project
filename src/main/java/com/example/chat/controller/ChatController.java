@@ -20,6 +20,12 @@ public class ChatController {
     private final ChatMessageMapper chatMessageMapper;
     private final UserMapper userMapper;
 
+    // [추가] 등록된 전체 사용자 목록 조회 API (GET 요청 처리 -> 405 에러 해결)
+    @GetMapping("/api/users")
+    public List<User> getAllUsers() {
+        return userMapper.findAllUsers();
+    }
+
     // 1. 사용자 로그인 및 DB 등록/확인 API (404 에러 해결)
     @PostMapping("/api/users")
     public User loginOrRegisterUser(@RequestBody User user) {

@@ -13,9 +13,9 @@ export default function LoginPage() {
   // 컴포넌트 마운트 시 등록된 사용자 목록 조회
   useEffect(() => {
     axios
-      .get("/api/users") // 백엔드 사용자 목록 조회 API 경로에 맞게 수정하세요
+      .get("/api/users")
       .then((res) => {
-        setUsers(res.data);
+        setUsers(res.data); // 백엔드에서 반환하는 User 객체 리스트 ([{ id: 1, name: "홍길동" }, ...])
       })
       .catch((err) => {
         console.error("사용자 목록을 불러오는데 실패했습니다.", err);
@@ -74,8 +74,9 @@ export default function LoginPage() {
             >
               <option value="">-- 사용자를 선택하세요 --</option>
               {users.map((user) => (
-                <option key={user.id || user.username} value={user.username}>
-                  {user.username}
+                // DB 엔티티 필드명인 user.name을 기준으로 key와 value 지정
+                <option key={user.id || user.name} value={user.name}>
+                  {user.name}
                 </option>
               ))}
             </select>
