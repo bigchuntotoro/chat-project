@@ -16,4 +16,8 @@
         ORDER BY id ASC
         LIMIT 100
     </select>
+
+    <delete id="deleteMessagesByChannelId">
+        DELETE FROM chat_messages WHERE channel_id = #{channelId}
+    </delete>
 </mapper>

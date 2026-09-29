@@ -2,6 +2,7 @@ package com.example.chat.service;
 
 import com.example.chat.domain.Channel;
 import com.example.chat.mapper.ChannelMapper;
+import com.example.chat.mapper.ChatMessageMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,6 +13,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ChannelService {
     private final ChannelMapper channelMapper;
+    private final ChatMessageMapper ChatMessageMapper;
 
     public List<Channel> getChannelList() {
         return channelMapper.findAll();
@@ -25,14 +27,12 @@ public class ChannelService {
         return channel;
     }
 
-    // 채널 삭제 비즈니스 로직 추가
     @Transactional
-    public void deleteChannel(Long id) {
-        // (선택사항) 삭제하려는 채널이 존재하는지 확인하는 로직 추가 가능
-        Channel channel = channelMapper.findById(id);
-        if (channel == null) {
-            throw new IllegalArgumentException("존재하지 않는 채널입니다.");
-        }
-        channelMapper.deleteChannel(id);
+    public void deleteChannel(String channelId) {
+        // 1. 해당 채널의 대화 내용(메시지) 먼저 삭제 (외래 키 제약 조건 에러 방지)
+        ChatMessageMapper.deleteMessagesByChannelId(channelId);
+
+        // 2. 채널 삭제
+        channelMapper.deleteChannel(channelId);
     }
 }

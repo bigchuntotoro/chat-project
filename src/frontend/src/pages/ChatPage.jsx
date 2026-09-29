@@ -16,7 +16,7 @@ export default function ChatPage() {
   const [messagesMap, setMessagesMap] = useState({});
   const [inputMessage, setInputMessage] = useState("");
 
-  // [추가] 자동 스크롤을 위한 Ref 선언
+  // 자동 스크롤을 위한 Ref 선언
   const messagesEndRef = useRef(null);
 
   const navigate = useNavigate();
@@ -130,7 +130,7 @@ export default function ChatPage() {
   };
 
   // ============================================================
-  // 채널 삭제 핸들러
+  // 채널 삭제 핸들러 (채널 목록 및 해당 대화 내용 함께 삭제)
   // ============================================================
   const handleDeleteChannel = (e, targetId) => {
     e.stopPropagation();
@@ -140,10 +140,19 @@ export default function ChatPage() {
     api
       .delete(`/channels/${targetId}`)
       .then(() => {
+        // 1. 채널 목록에서 제거
         setChannels((prev) =>
           prev.filter((ch) => String(ch.id) !== String(targetId)),
         );
 
+        // 2. [추가] 해당 채널의 대화 내용(messagesMap) 삭제
+        setMessagesMap((prev) => {
+          const updatedMap = { ...prev };
+          delete updatedMap[targetId];
+          return updatedMap;
+        });
+
+        // 3. 현재 보고 있던 채널이 삭제된 채널이라면 general로 이동
         if (String(channelId) === String(targetId)) {
           setChannelId("general");
         }
@@ -215,12 +224,12 @@ export default function ChatPage() {
         </form>
 
         <ul>
-          <li
+          {/* <li
             className={channelId === "general" ? "active" : ""}
             onClick={() => setChannelId("general")}
           >
             # general
-          </li>
+          </li> */}
 
           {channels.map((ch) => (
             <li
@@ -334,7 +343,6 @@ export default function ChatPage() {
               <p className="content">{msg.content}</p>
             </div>
           ))}
-          {/* [추가] 스크롤 위치를 잡아주는 빈 div */}
           <div ref={messagesEndRef} />
         </div>
 

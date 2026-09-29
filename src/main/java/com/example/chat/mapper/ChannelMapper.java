@@ -9,6 +9,6 @@ import java.util.List;
 public interface ChannelMapper {
     List<Channel> findAll();
     void insertChannel(Channel channel);
-    Channel findById(Long id);
-    void deleteChannel(Long id); // 채널 삭제
+    Channel findById(String id);
+    void deleteChannel(String id); // 채널 삭제
 }

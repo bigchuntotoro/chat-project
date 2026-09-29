@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class Channel {
-    private Long id;
+    private String id;
     private String name;
     private LocalDateTime createdAt;
 }

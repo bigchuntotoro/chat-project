@@ -28,10 +28,10 @@ public class ChannelController {
         return ResponseEntity.status(HttpStatus.CREATED).body(newChannel);
     }
 
-    // 채널 삭제 API 추가
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteChannel(@PathVariable Long id) {
-        channelService.deleteChannel(id);
-        return ResponseEntity.noContent().build(); // 204 No Content 반환
+    // 채널 삭제 API
+    @DeleteMapping("/{channelId}")
+    public ResponseEntity<Void> deleteChannel(@PathVariable String channelId) {
+        channelService.deleteChannel(channelId);
+        return ResponseEntity.ok().build();
     }
 }
