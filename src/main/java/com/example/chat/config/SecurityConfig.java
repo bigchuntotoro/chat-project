@@ -69,7 +69,8 @@ public class SecurityConfig {
         // React 개발 서버 허용
         configuration.setAllowedOrigins(
                 List.of(
-                        "http://localhost:3000"
+                        "http://localhost:3000",
+                        "https://hpprobook4740s-1.tail479dbd.ts.net"
                 )
         );
 
