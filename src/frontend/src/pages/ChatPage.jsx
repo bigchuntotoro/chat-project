@@ -1,41 +1,43 @@
+// src/components/ChatPage.jsx
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import useWebSocket from "../hooks/useWebSocket";
 import api from "../services/api";
 import "../styles/chat.css";
 
 export default function ChatPage() {
   const [user, setUser] = useState(null);
-
-  // 채널 목록 및 현재 선택된 채널 상태
   const [channels, setChannels] = useState([]);
-  const [channelId, setChannelId] = useState("general");
-  const [newChannelName, setNewChannelName] = useState("");
+
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const getInitialChannel = () => {
+    const params = new URLSearchParams(location.search);
+    const queryChannelId = params.get("channelId");
+    if (queryChannelId) return queryChannelId;
+
+    const savedChannelId = localStorage.getItem("chat_channelId");
+    return savedChannelId || "general";
+  };
+
+  const [channelId, setChannelId] = useState(getInitialChannel);
 
   // 채널별 메시지 관리
   const [messagesMap, setMessagesMap] = useState({});
   const [inputMessage, setInputMessage] = useState("");
 
-  // 자동 스크롤을 위한 Ref 선언
   const messagesEndRef = useRef(null);
 
-  const navigate = useNavigate();
-
-  // ============================================================
-  // 스크롤을 맨 아래로 내리는 함수
-  // ============================================================
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // 메시지가 추가되거나 채널이 변경될 때 자동으로 맨 아래로 스크롤
   useEffect(() => {
     scrollToBottom();
   }, [messagesMap, channelId]);
 
-  // ============================================================
-  // 사용자 인증 확인 및 DB 연동, 채널 목록 로드
-  // ============================================================
+  // 사용자 정보 및 채널 목록 로드
   useEffect(() => {
     const username = localStorage.getItem("chat_username");
     if (!username) {
@@ -63,9 +65,13 @@ export default function ChatPage() {
       });
   }, [navigate]);
 
-  // ============================================================
-  // 채널 변경 시 해당 채널의 과거 대화 내역(DB) 불러오기
-  // ============================================================
+  useEffect(() => {
+    if (channelId) {
+      localStorage.setItem("chat_channelId", channelId);
+    }
+  }, [channelId]);
+
+  // 과거 메시지 불러오기
   useEffect(() => {
     api
       .get(`/channels/${channelId}/messages`)
@@ -80,9 +86,6 @@ export default function ChatPage() {
       });
   }, [channelId]);
 
-  // ============================================================
-  // WebSocket 실시간 메시지 수신 (현재 선택된 채널 기준)
-  // ============================================================
   const handleMessageReceived = (newMessage) => {
     setMessagesMap((prev) => {
       const currentChannelMessages = prev[newMessage.channelId] || [];
@@ -101,70 +104,13 @@ export default function ChatPage() {
     handleMessageReceived,
   );
 
-  // ============================================================
-  // 로그아웃 핸들러
-  // ============================================================
   const handleLogout = () => {
     if (!window.confirm("정말 로그아웃 하시겠습니까?")) return;
     localStorage.removeItem("chat_username");
+    localStorage.removeItem("chat_channelId");
     navigate("/", { replace: true });
   };
 
-  // ============================================================
-  // 새 채널 생성 핸들러
-  // ============================================================
-  const handleCreateChannel = (e) => {
-    e.preventDefault();
-    if (!newChannelName.trim()) return;
-
-    api
-      .post("/channels", { name: newChannelName })
-      .then((res) => {
-        const createdChannel = res.data;
-        setChannels((prev) => [createdChannel, ...prev]);
-        setNewChannelName("");
-      })
-      .catch((err) => {
-        console.error("채널 생성 실패:", err);
-      });
-  };
-
-  // ============================================================
-  // 채널 삭제 핸들러 (채널 목록 및 해당 대화 내용 함께 삭제)
-  // ============================================================
-  const handleDeleteChannel = (e, targetId) => {
-    e.stopPropagation();
-
-    if (!window.confirm("정말 이 채널을 삭제하시겠습니까?")) return;
-
-    api
-      .delete(`/channels/${targetId}`)
-      .then(() => {
-        // 1. 채널 목록에서 제거
-        setChannels((prev) =>
-          prev.filter((ch) => String(ch.id) !== String(targetId)),
-        );
-
-        // 2. [추가] 해당 채널의 대화 내용(messagesMap) 삭제
-        setMessagesMap((prev) => {
-          const updatedMap = { ...prev };
-          delete updatedMap[targetId];
-          return updatedMap;
-        });
-
-        // 3. 현재 보고 있던 채널이 삭제된 채널이라면 general로 이동
-        if (String(channelId) === String(targetId)) {
-          setChannelId("general");
-        }
-      })
-      .catch((err) => {
-        console.error("채널 삭제 실패:", err);
-      });
-  };
-
-  // ============================================================
-  // 메시지 전송
-  // ============================================================
   const handleSend = (e) => {
     e.preventDefault();
 
@@ -185,86 +131,40 @@ export default function ChatPage() {
     setInputMessage("");
   };
 
-  // 현재 선택된 채널의 메시지 목록
   const currentMessages = messagesMap[channelId] || [];
 
-  // 현재 선택된 채널의 제목 찾기
   const getCurrentChannelName = () => {
     if (channelId === "general") return "general";
     const found = channels.find((ch) => String(ch.id) === String(channelId));
     return found ? found.name : channelId;
   };
 
-  // 현재 채널 참여자 목록 추출
   const currentChannelParticipants = Array.from(
     new Set(currentMessages.map((msg) => msg.senderName)),
   );
 
-  // ============================================================
-  // 화면 렌더링
-  // ============================================================
   return (
     <div className="chat-container">
-      {/* 좌측 사이드바 (채널 목록 + 채널 참여자 목록 통합) */}
       <div className="sidebar">
-        <h3>채널 목록</h3>
+        <h3>현재 채널</h3>
 
-        {/* 새 채널 생성 폼 */}
-        <form onSubmit={handleCreateChannel} className="channel-create-form">
-          <input
-            type="text"
-            value={newChannelName}
-            onChange={(e) => setNewChannelName(e.target.value)}
-            placeholder="채널 이름..."
-            className="channel-create-input"
-          />
-          <button type="submit" className="channel-create-button">
-            추가
-          </button>
-        </form>
+        {/* 선택된 현재 채널 표시 */}
+        <div
+          style={{
+            padding: "10px",
+            backgroundColor: "#333",
+            borderRadius: "4px",
+            marginBottom: "15px",
+            fontWeight: "bold",
+            color: "#fff",
+          }}
+        >
+          # {getCurrentChannelName()}
+        </div>
 
-        <ul>
-          {/* <li
-            className={channelId === "general" ? "active" : ""}
-            onClick={() => setChannelId("general")}
-          >
-            # general
-          </li> */}
-
-          {channels.map((ch) => (
-            <li
-              key={ch.id}
-              className={String(channelId) === String(ch.id) ? "active" : ""}
-              onClick={() => setChannelId(String(ch.id))}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <span># {ch.name}</span>
-              <button
-                type="button"
-                onClick={(e) => handleDeleteChannel(e, ch.id)}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "#ff6b6b",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                }}
-              >
-                삭제
-              </button>
-            </li>
-          ))}
-        </ul>
-
-        {/* 채널 참여자 목록 영역 */}
         <div
           className="participants-section"
           style={{
-            marginTop: "15px",
             borderTop: "1px solid #444",
             paddingTop: "10px",
           }}
@@ -320,12 +220,11 @@ export default function ChatPage() {
               cursor: "pointer",
             }}
           >
-            로그아웃
+            로그아웃 / 채널 변경
           </button>
         </div>
       </div>
 
-      {/* 메인 채팅 영역 */}
       <div className="chat-main">
         <div className="chat-header">
           <h2>채널: #{getCurrentChannelName()}</h2>
