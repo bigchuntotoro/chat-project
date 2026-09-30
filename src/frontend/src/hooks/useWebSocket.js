@@ -1,3 +1,4 @@
+// src/hooks/useWebSocket.js
 import { useEffect, useRef, useState } from "react";
 import SockJS from "sockjs-client";
 import { Client } from "@stomp/stompjs";
@@ -6,24 +7,33 @@ export default function useWebSocket(channelId, onMessageReceived) {
   const stompClient = useRef(null);
   const [isConnected, setIsConnected] = useState(false);
 
+  // ★ 핵심: 콜백 함수가 바뀔 때마다 ref에 최신 함수를 동기화하여 클로저 이슈 방지
+  const savedCallback = useRef(onMessageReceived);
   useEffect(() => {
-    // 백엔드 서버 주소를 명확하게 지정 (포트 번호가 다를 경우 백엔드 주소 입력)
-    // 예: 백엔드가 8086 포트인 경우 "http://localhost:8086/ws"
+    savedCallback.current = onMessageReceived;
+  }, [onMessageReceived]);
+
+  useEffect(() => {
+    if (!channelId) return;
+
     const socket = new SockJS("/ws");
 
     const client = new Client({
       webSocketFactory: () => socket,
       debug: (str) => {
-        console.log(str);
+        // console.log(str);
       },
       onConnect: () => {
         setIsConnected(true);
         console.log("WebSocket Connected");
 
-        // 백엔드 ChatController의 브로드캐스트 경로와 일치하는 구독 설정
+        // 채널별 구독 설정
         client.subscribe(`/topic/channel/${channelId}`, (message) => {
           const receivedMessage = JSON.parse(message.body);
-          onMessageReceived(receivedMessage);
+          // 최신 콜백 호출
+          if (savedCallback.current) {
+            savedCallback.current(receivedMessage);
+          }
         });
       },
       onDisconnect: () => {
