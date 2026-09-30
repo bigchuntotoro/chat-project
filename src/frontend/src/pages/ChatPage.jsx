@@ -144,93 +144,98 @@ export default function ChatPage() {
   );
 
   return (
-    <div className="chat-container">
-      <div className="sidebar">
-        <h3>현재 채널</h3>
-
-        {/* 선택된 현재 채널 표시 */}
-        <div
-          style={{
-            padding: "10px",
-            backgroundColor: "#333",
-            borderRadius: "4px",
-            marginBottom: "15px",
-            fontWeight: "bold",
-            color: "#fff",
-          }}
-        >
-          # {getCurrentChannelName()}
-        </div>
-
-        <div
-          className="participants-section"
-          style={{
-            borderTop: "1px solid #444",
-            paddingTop: "10px",
-          }}
-        >
-          <h4 style={{ fontSize: "14px", marginBottom: "8px", color: "#ccc" }}>
-            채널 참여자
-          </h4>
-          <ul
-            style={{
-              listStyle: "none",
-              padding: 0,
-              margin: 0,
-              fontSize: "13px",
-            }}
-          >
-            {user && !currentChannelParticipants.includes(user.name) && (
-              <li style={{ padding: "2px 0" }}>• {user.name} (나)</li>
-            )}
-            {currentChannelParticipants.map((name, idx) => (
-              <li key={idx} style={{ padding: "2px 0" }}>
-                • {name} {name === user?.name ? "(나)" : ""}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="user-info">
-          {user && (
-            <p>
-              접속자: <strong>{user.name}</strong>님
-            </p>
-          )}
-
-          <p className="status-indicator">
+    <div className="chat-container" style={{ flexDirection: "column" }}>
+      {/* 상단으로 옮겨진 상태 표시 및 정보 영역 */}
+      <div
+        className="top-status-bar"
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "10px 15px",
+          backgroundColor: "#222",
+          color: "#fff",
+          borderBottom: "1px solid #444",
+          gap: "10px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <span style={{ fontWeight: "bold", color: "#4dabf7" }}>
+            #{getCurrentChannelName()}
+          </span>
+          <span className="status-indicator" style={{ fontSize: "13px" }}>
             상태:{" "}
             <span className={isConnected ? "online" : "offline"}>
               {isConnected ? "실시간 연결됨" : "연결 끊김"}
             </span>
-          </p>
+          </span>
+        </div>
 
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            fontSize: "13px",
+          }}
+        >
+          {user && (
+            <span>
+              <strong>{user.name}</strong>님
+            </span>
+          )}
           <button
             type="button"
             onClick={handleLogout}
-            className="logout-button"
             style={{
-              marginTop: "10px",
-              width: "100%",
-              padding: "8px",
+              padding: "4px 8px",
               backgroundColor: "#ff6b6b",
               color: "#fff",
               border: "none",
               borderRadius: "4px",
               cursor: "pointer",
+              fontSize: "12px",
             }}
           >
-            로그아웃 / 채널 변경
+            나가기/변경
           </button>
+        </div>
+
+        {/* 참여자 요약 가로 표시 */}
+        <div
+          style={{
+            width: "100%",
+            fontSize: "12px",
+            color: "#aaa",
+            borderTop: "1px solid #333",
+            paddingTop: "5px",
+          }}
+        >
+          참여자:{" "}
+          {user && !currentChannelParticipants.includes(user.name)
+            ? `${user.name}(나), `
+            : ""}
+          {currentChannelParticipants
+            .map((name) => `${name}${name === user?.name ? "(나)" : ""}`)
+            .join(", ")}
         </div>
       </div>
 
-      <div className="chat-main">
-        <div className="chat-header">
-          <h2>채널: #{getCurrentChannelName()}</h2>
-        </div>
-
-        <div className="chat-messages">
+      {/* 메인 채팅 영역 (전체 화면 활용) */}
+      <div
+        className="chat-main"
+        style={{
+          width: "100%",
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <div
+          className="chat-messages"
+          style={{ flex: 1, overflowY: "auto", padding: "10px" }}
+        >
           {currentMessages.map((msg, index) => (
             <div
               key={msg.id || index}
@@ -245,14 +250,29 @@ export default function ChatPage() {
           <div ref={messagesEndRef} />
         </div>
 
-        <form className="chat-input-box" onSubmit={handleSend}>
+        <form
+          className="chat-input-box"
+          onSubmit={handleSend}
+          style={{ display: "flex", padding: "10px", background: "#f8f9fa" }}
+        >
           <input
             type="text"
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             placeholder="메시지를 입력하세요..."
+            style={{
+              flex: 1,
+              padding: "8px",
+              borderRadius: "4px",
+              border: "1px solid #ccc",
+            }}
           />
-          <button type="submit">전송</button>
+          <button
+            type="submit"
+            style={{ marginLeft: "8px", padding: "8px 16px" }}
+          >
+            전송
+          </button>
         </form>
       </div>
     </div>
